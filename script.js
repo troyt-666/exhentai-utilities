@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Exhentai Direct Archive Download button
+// @name         Exhentai Archive Download Button
 // @namespace    https://greasyfork.org/users/581141
 // @version      1.0
-// @description  Add a button to download the original archive directly from the search page on Exhentai (without having to open the gallery page). The download is simply a shortcut for the normal download process, so it still consumes GP and follows the same rules
+// @description  Add a button to download the original or resampled archive directly from the search page on Exhentai (without having to open the gallery page). The download is simply a shortcut for the normal download process, so it still consumes GP and follows the same rules
 // @author       Troy T
 // @match        https://exhentai.org/*
 // @match        https://e-hentai.org/*
