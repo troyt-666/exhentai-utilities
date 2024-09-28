@@ -25,23 +25,26 @@
         // Create a container div for both buttons
         var buttonContainer = document.createElement('div');
         buttonContainer.style.display = 'flex'; // Flex container for side-by-side buttons
+        buttonContainer.style.gap = '5px'; // Gap between the buttons
+
+        // Create a button style function to match the existing page style
+        function createButton(text) {
+            var button = document.createElement('button');
+            button.innerText = text;
+            button.style.padding = '5px 10px';  // Padding similar to the existing button style
+            button.style.cursor = 'pointer';    // Pointer cursor for interaction
+            button.style.border = '1px solid #ccc';  // Light border similar to the website
+            button.style.backgroundColor = 'transparent'; // Match the page background color
+            button.style.color = 'inherit';  // Use the same text color as the page
+            button.style.fontSize = '12px';  // Match the font size for the website
+            return button;
+        }
 
         // Create the Original Archive button
-        var downloadOriginalButton = document.createElement('button');
-        downloadOriginalButton.innerText = 'Download Original Archive';
-        downloadOriginalButton.style.marginRight = '10px';
-        downloadOriginalButton.style.backgroundColor = '#f1c40f';
-        downloadOriginalButton.style.border = 'none';
-        downloadOriginalButton.style.padding = '5px';
-        downloadOriginalButton.style.cursor = 'pointer';
+        var downloadOriginalButton = createButton('Download Original Archive');
 
         // Create the Resample Archive button
-        var downloadResampleButton = document.createElement('button');
-        downloadResampleButton.innerText = 'Download Resample Archive';
-        downloadResampleButton.style.backgroundColor = '#3498db'; // Different color for resample
-        downloadResampleButton.style.border = 'none';
-        downloadResampleButton.style.padding = '5px';
-        downloadResampleButton.style.cursor = 'pointer';
+        var downloadResampleButton = createButton('Download Resample Archive');
 
         // Add both buttons to the container
         buttonContainer.appendChild(downloadOriginalButton);
