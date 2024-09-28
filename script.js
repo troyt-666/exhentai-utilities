@@ -10,7 +10,7 @@
 // @connect      hath.network
 // @connect      *.hath.network
 // @grant        GM_xmlhttpRequest
-// @licencse     MIT
+// @license     MIT
 // ==/UserScript==
 
 (function() {
