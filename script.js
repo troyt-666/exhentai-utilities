@@ -109,9 +109,9 @@
                                                     var successMessage = "An original resolution download has been queued for client";
                                                     if (formSubmitResponse.responseText.includes(successMessage)) {
                                                         alert("Remote server download successfully started!");
-                                                        console.log("Remote server download successfully queued.");
+                                                        console.log("H@H download successfully queued.");
                                                     } else {
-                                                        console.log("Failed to queue remote server download.");
+                                                        console.log("Failed to queue H@H download.");
                                                     }
                                                 }
                                             });
