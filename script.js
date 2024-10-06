@@ -17,6 +17,50 @@
 (function() {
     'use strict';
 
+    // Function to show a toast notification
+    function showToast(message) {
+        // Create the toast container
+        var toast = document.createElement('div');
+        toast.style.position = 'fixed';
+        toast.style.bottom = '20px';
+        toast.style.right = '20px';
+        toast.style.padding = '15px';
+        toast.style.backgroundColor = '#333';
+        toast.style.color = '#fff';
+        toast.style.borderRadius = '5px';
+        toast.style.boxShadow = '0px 0px 10px rgba(0,0,0,0.5)';
+        toast.style.zIndex = '10000';
+        toast.style.fontSize = '14px';
+        toast.style.display = 'flex';
+        toast.style.alignItems = 'center';
+
+        // Add an icon (optional)
+        var icon = document.createElement('div');
+        icon.innerHTML = '&#10004;';
+        icon.style.marginRight = '10px';
+        icon.style.color = '#4CAF50'; // Green color for success
+        icon.style.fontSize = '20px';
+        toast.appendChild(icon);
+
+        // Add the message
+        var messageText = document.createElement('span');
+        messageText.textContent = message;
+        toast.appendChild(messageText);
+
+        // Append the toast to the body
+        document.body.appendChild(toast);
+
+        // Automatically remove the toast after 3 seconds
+        setTimeout(function() {
+            toast.style.transition = 'opacity 0.5s ease-in-out';
+            toast.style.opacity = '0';
+            setTimeout(function() {
+                document.body.removeChild(toast);
+            }, 500); // Wait for the fade-out transition to complete
+        }, 3000); // Display for 3 seconds
+    }
+
+
     // Loop through all gallery items on the search page
     var galleryItems = document.querySelectorAll('.gl1t');
 
@@ -108,7 +152,7 @@
                                                 onload: function(formSubmitResponse) {
                                                     var successMessage = "An original resolution download has been queued for client";
                                                     if (formSubmitResponse.responseText.includes(successMessage)) {
-                                                        alert("Remote server download successfully started!");
+                                                        showToast("H@H download successfully started!");
                                                         console.log("H@H download successfully queued.");
                                                     } else {
                                                         console.log("Failed to queue H@H download.");
@@ -116,7 +160,7 @@
                                                 }
                                             });
                                         } else {
-                                            alert('H@H form not found!');
+                                            showToast('H@H form not found!');
                                             console.log("Form element for H@H download not found.");
                                         }
                                         return;
