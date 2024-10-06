@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         Exhentai Archive Download Button
 // @namespace    https://greasyfork.org/users/581141
-// @version      1.0
-// @description  Add a button to download the original or resampled archive directly from the search page on Exhentai (without having to open the gallery page). The download is simply a shortcut for the normal download process, so it still consumes GP and follows the same rules
+// @version      1.1
+// @description  Add a button to download the original, resampled, or H@H archive directly from the search page on Exhentai or E-Hentai.
 // @author       Troy T
 // @match        https://exhentai.org/*
 // @match        https://e-hentai.org/*
 // @connect      exhentai.org
+// @connect      e-hentai.org
 // @connect      hath.network
 // @connect      *.hath.network
 // @grant        GM_xmlhttpRequest
@@ -22,7 +23,7 @@
     galleryItems.forEach(function(item) {
         var galleryLink = item.querySelector('a').href; // Get the gallery link
 
-        // Create a container div for both buttons
+        // Create a container div for buttons
         var buttonContainer = document.createElement('div');
         buttonContainer.style.display = 'flex'; // Flex container for side-by-side buttons
         buttonContainer.style.gap = '5px'; // Gap between the buttons
@@ -46,14 +47,18 @@
         // Create the Resample Archive button
         var downloadResampleButton = createButton('Download Resample Archive');
 
-        // Add both buttons to the container
+        // Create the Remote Server Download button (H@H)
+        var downloadHaHButton = createButton('Download using H@H');
+
+        // Add all buttons to the container
         buttonContainer.appendChild(downloadOriginalButton);
         buttonContainer.appendChild(downloadResampleButton);
+        buttonContainer.appendChild(downloadHaHButton);
 
         // Add the button container to the gallery item
         item.appendChild(buttonContainer);
 
-        // Helper function to download either the Original or Resample archive
+        // Helper function to handle downloads (Original, Resample, or H@H)
         function handleDownloadButton(archiveType) {
             console.log("Fetching gallery page: " + galleryLink); // Log the gallery link being accessed
 
@@ -69,15 +74,15 @@
                     var archiveDownloadAnchor = doc.querySelector('a[onclick^="return popUp"]');
                     
                     if (archiveDownloadAnchor) {
-                        console.log("Found archiveDownloadAnchor:", archiveDownloadAnchor); // Log only the anchor element
+                        console.log("Found archiveDownloadAnchor:", archiveDownloadAnchor); // Log the anchor element
 
-                        // Extract the URL from the onclick attribute, which contains a popUp() call
+                        // Extract the URL from the onclick attribute (popUp() call)
                         var onclickContent = archiveDownloadAnchor.getAttribute('onclick');
                         var archiveUrlMatch = onclickContent.match(/popUp\('(.+?)'/);
                         
                         if (archiveUrlMatch && archiveUrlMatch[1]) {
                             var archiveUrl = archiveUrlMatch[1];
-                            console.log("Extracted archive URL:", archiveUrl); // Log only the extracted URL
+                            console.log("Extracted archive URL:", archiveUrl); // Log the extracted URL
 
                             // Step 2: Fetch the page where the form exists
                             GM_xmlhttpRequest({
@@ -86,30 +91,61 @@
                                 onload: function(archivePageResponse) {
                                     var archiveDoc = parser.parseFromString(archivePageResponse.responseText, 'text/html');
 
-                                    // Now, find the form for either Original or Resample Archive
+                                    // Check if we are handling the H@H download
+                                    if (archiveType === 'hath') {
+                                        // Handle H@H download by submitting the form for H@H server
+                                        var formElement = archiveDoc.querySelector('#hathdl_form');
+                                        if (formElement) {
+                                            var formAction = formElement.getAttribute('action');
+                                            var formData = new FormData(formElement);
+                                            formData.set('hathdl_xres', 'org'); // Set to 'Original'
+
+                                            // Submit the form for remote server download
+                                            GM_xmlhttpRequest({
+                                                method: 'POST',
+                                                url: formAction,
+                                                data: new URLSearchParams(formData), // Simulate the form submission
+                                                onload: function(formSubmitResponse) {
+                                                    var successMessage = "An original resolution download has been queued for client";
+                                                    if (formSubmitResponse.responseText.includes(successMessage)) {
+                                                        alert("Remote server download successfully started!");
+                                                        console.log("Remote server download successfully queued.");
+                                                    } else {
+                                                        console.log("Failed to queue remote server download.");
+                                                    }
+                                                }
+                                            });
+                                        } else {
+                                            alert('H@H form not found!');
+                                            console.log("Form element for H@H download not found.");
+                                        }
+                                        return;
+                                    }
+
+                                    // For original or resample downloads
                                     var formElement = archiveDoc.querySelector('form[action*="archiver.php"]');
                                     var formAction = formElement.getAttribute('action');
                                     console.log("Form action URL:", formAction); // Log the form action URL
 
-                                    // Step 3: Simulate submitting the form by POSTing the request with the appropriate dltype (org or res)
-                                    var dltypeValue = archiveType === 'original' ? 'org' : 'res'; // Decide between 'org' and 'res'
+                                    // Step 3: Simulate submitting the form by POSTing the request
+                                    var dltypeValue = archiveType === 'original' ? 'org' : 'res';
                                     GM_xmlhttpRequest({
                                         method: 'POST',
                                         url: formAction,
                                         headers: {
                                             'Content-Type': 'application/x-www-form-urlencoded'
                                         },
-                                        data: `dltype=${dltypeValue}&dlcheck=Download ${archiveType === 'original' ? 'Original' : 'Resample'} Archive`, // Simulate form submission
+                                        data: `dltype=${dltypeValue}&dlcheck=Download ${archiveType === 'original' ? 'Original' : 'Resample'} Archive`,
                                         onload: function(formSubmitResponse) {
                                             var formSubmitDoc = parser.parseFromString(formSubmitResponse.responseText, 'text/html');
 
-                                            // Extract the final redirect URL from the <a> tag or JavaScript
+                                            // Extract the final redirect URL
                                             var redirectLink = formSubmitDoc.querySelector('#continue a') || formSubmitDoc.querySelector('script').innerText.match(/document\.location\s*=\s*"(.+?)"/)[1];
 
                                             if (redirectLink) {
-                                                console.log(`Found final ${archiveType} download URL from redirect:`, redirectLink); // Log the redirect URL
+                                                console.log(`Found final ${archiveType} download URL from redirect:`, redirectLink);
 
-                                                // Step 5: Start polling the final URL to check when the download link appears
+                                                // Poll for the final download link
                                                 var checkForDownloadLink = function() {
                                                     GM_xmlhttpRequest({
                                                         method: 'GET',
@@ -117,22 +153,21 @@
                                                         onload: function(downloadPageResponse) {
                                                             var downloadDoc = parser.parseFromString(downloadPageResponse.responseText, 'text/html');
 
-                                                            // Step 6: Check for the download link or "Click Here To Start Downloading"
+                                                            // Check for the download link or message
                                                             var finalDownloadLink = downloadDoc.querySelector('a[href^="/archive/"]') || downloadDoc.body.innerHTML.includes("Click Here To Start Downloading");
 
                                                             if (finalDownloadLink) {
-                                                                var finalUrl = redirectLink + "?start=1"; // Add ?start=1 to the redirect URL
-                                                                console.log("Final download URL:", finalUrl); // Log the final download URL
-                                                                // Step 7: Trigger the download
+                                                                var finalUrl = redirectLink + "?start=1";
+                                                                console.log("Final download URL:", finalUrl);
                                                                 var a = document.createElement('a');
                                                                 a.href = finalUrl;
                                                                 a.style.display = 'none';
                                                                 document.body.appendChild(a);
-                                                                a.click(); // Simulate click
-                                                                document.body.removeChild(a); // Clean up
+                                                                a.click();
+                                                                document.body.removeChild(a);
                                                             } else {
                                                                 console.log("Download link not available yet. Retrying in 2 seconds...");
-                                                                setTimeout(checkForDownloadLink, 2000); // Retry after 2 seconds
+                                                                setTimeout(checkForDownloadLink, 2000);
                                                             }
                                                         }
                                                     });
@@ -150,22 +185,25 @@
                             });
                         } else {
                             alert('Could not extract archive URL from onclick attribute!');
-                            console.log("Onclick content:", onclickContent); // Log onclick content for debugging
+                            console.log("Onclick content:", onclickContent);
                         }
                     } else {
                         alert('Archive download link not found!');
-                        console.log("Archive download link not found in page:", response.responseText); // Log for debugging if necessary
+                        console.log("Archive download link not found in page:", response.responseText);
                     }
                 }
             });
         }
 
-        // Add event listeners for both buttons
+        // Add event listeners for all buttons
         downloadOriginalButton.addEventListener('click', function() {
             handleDownloadButton('original');
         });
         downloadResampleButton.addEventListener('click', function() {
             handleDownloadButton('resample');
+        });
+        downloadHaHButton.addEventListener('click', function() {
+            handleDownloadButton('hath');
         });
     });
 })();
