@@ -89,7 +89,7 @@
         var downloadOriginalButton = createButton('Download Orginal');
 
         // Create the Resample Archive button
-        var downloadResampleButton = createButton('Down Resample');
+        var downloadResampleButton = createButton('Download Resample');
 
         // Create the Remote Server Download button (H@H)
         var downloadHaHButton = createButton('Download H@H');
