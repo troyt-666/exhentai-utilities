@@ -42,13 +42,13 @@
         }
 
         // Create the Original Archive button
-        var downloadOriginalButton = createButton('Download Original Archive');
+        var downloadOriginalButton = createButton('Download Orginal');
 
         // Create the Resample Archive button
-        var downloadResampleButton = createButton('Download Resample Archive');
+        var downloadResampleButton = createButton('Down Resample');
 
         // Create the Remote Server Download button (H@H)
-        var downloadHaHButton = createButton('Download using H@H');
+        var downloadHaHButton = createButton('Download H@H');
 
         // Add all buttons to the container
         buttonContainer.appendChild(downloadOriginalButton);
