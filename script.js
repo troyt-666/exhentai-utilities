@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Exhentai Archive Download Button
 // @namespace    https://greasyfork.org/users/581141
-// @version      1.2
+// @version      1.2.1
 // @description  Add a button to download the original, resampled archive or use H@H directly from the search page on ExHentai or E-Hentai. The download is simply a shortcut for the normal download process, so it still consumes GP and follows the same rules.
 // @author       Troy T
 // @match        https://exhentai.org/*
@@ -168,7 +168,7 @@
                                                 onload: function(formSubmitResponse) {
                                                     var successMessage = "An original resolution download has been queued for client";
                                                     if (formSubmitResponse.responseText.includes(successMessage)) {
-                                                        showToast("H@H download successfully started!");
+                                                        showToast("H@H download successfully queued!");
                                                         console.log("H@H download successfully queued.");
                                                     } else {
                                                         console.log("Failed to queue H@H download.");
