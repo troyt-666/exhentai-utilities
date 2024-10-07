@@ -17,7 +17,7 @@
 (function() {
     'use strict';
 
-    // Function to show a toast notification
+    // Function to show a toast notification with a shrinking progress bar
     function showToast(message) {
         // Create the toast container
         var toast = document.createElement('div');
@@ -32,12 +32,14 @@
         toast.style.zIndex = '10000';
         toast.style.fontSize = '14px';
         toast.style.display = 'flex';
+        toast.style.flexDirection = 'column';  // Stack icon/text and progress bar vertically
         toast.style.alignItems = 'center';
+        toast.style.width = '300px';
 
         // Add an icon (optional)
         var icon = document.createElement('div');
-        icon.innerHTML = '&#10004;';
-        icon.style.marginRight = '10px';
+        icon.innerHTML = '&#10004;'; // Checkmark icon (you can replace this with any other icon)
+        icon.style.marginBottom = '10px';
         icon.style.color = '#4CAF50'; // Green color for success
         icon.style.fontSize = '20px';
         toast.appendChild(icon);
@@ -47,8 +49,22 @@
         messageText.textContent = message;
         toast.appendChild(messageText);
 
+        // Create a progress bar at the bottom of the toast
+        var progressBar = document.createElement('div');
+        progressBar.style.height = '5px';
+        progressBar.style.width = '100%';
+        progressBar.style.backgroundColor = '#4CAF50';  // Green progress bar
+        progressBar.style.borderRadius = '0 0 5px 5px';  // Rounded corners only at the bottom
+        progressBar.style.transition = 'width 3s linear';  // Smooth shrink over 3 seconds
+        toast.appendChild(progressBar);
+
         // Append the toast to the body
         document.body.appendChild(toast);
+
+        // Start the progress bar shrinking
+        setTimeout(function() {
+            progressBar.style.width = '0';  // Shrink the width to 0 over 3 seconds
+        }, 100);  // Small delay to ensure the progress bar appears at full width first
 
         // Automatically remove the toast after 3 seconds
         setTimeout(function() {
