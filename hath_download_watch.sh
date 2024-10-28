@@ -19,8 +19,8 @@ zip_subfolder() {
 
   # Watch the new folder for the creation of galleryinfo.txt
   # inotifywait -m -e create --format '%w%f' "$NEW" | while read FILE
-  inotifywait -m -e close_write --format '%w%f' "$NEW" | while read FILE
-  do
+  while true; do
+    FILE=$(inotifywait -q -e close_write --format '%w%f' "$NEW")
     BASENAME=$(basename "$FILE")
     if [ "$BASENAME" == "galleryinfo.txt" ]; then
       echo "Detected galleryinfo.txt in $NEW, waiting to ensure complete transfer..."
