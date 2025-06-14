@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Exhentai Archive Download Button
 // @namespace    https://greasyfork.org/users/581141
-// @version      1.2.2
+// @version      1.2.3
 // @description  Add a button to download the original, resampled archive or use H@H directly from the search page on ExHentai or E-Hentai. The download is simply a shortcut for the normal download process, so it still consumes GP and follows the same rules.
 // @author       Troy T
 // @match        https://exhentai.org/*
@@ -76,12 +76,302 @@
         }, 3000); // Display for 3 seconds
     }
 
+    // Function to show batch download progress
+    function showBatchProgress(current, total, galleryTitle = '') {
+        // Remove existing progress modal if any
+        var existingModal = document.getElementById('batch-progress-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // Create progress modal
+        var modal = document.createElement('div');
+        modal.id = 'batch-progress-modal';
+        modal.style.position = 'fixed';
+        modal.style.top = '50%';
+        modal.style.left = '50%';
+        modal.style.transform = 'translate(-50%, -50%)';
+        modal.style.padding = '20px';
+        modal.style.backgroundColor = '#333';
+        modal.style.color = '#fff';
+        modal.style.borderRadius = '10px';
+        modal.style.boxShadow = '0px 0px 20px rgba(0,0,0,0.8)';
+        modal.style.zIndex = '10001';
+        modal.style.fontSize = '14px';
+        modal.style.width = '400px';
+        modal.style.textAlign = 'center';
+
+        // Title
+        var title = document.createElement('h3');
+        title.textContent = 'Batch H@H Download Progress';
+        title.style.margin = '0 0 15px 0';
+        title.style.color = '#4CAF50';
+        modal.appendChild(title);
+
+        // Current gallery info
+        var currentInfo = document.createElement('div');
+        currentInfo.textContent = galleryTitle ? `Processing: ${galleryTitle}` : `Processing gallery ${current} of ${total}`;
+        currentInfo.style.marginBottom = '15px';
+        currentInfo.style.fontSize = '12px';
+        modal.appendChild(currentInfo);
+
+        // Progress bar container
+        var progressContainer = document.createElement('div');
+        progressContainer.style.width = '100%';
+        progressContainer.style.height = '20px';
+        progressContainer.style.backgroundColor = '#555';
+        progressContainer.style.borderRadius = '10px';
+        progressContainer.style.overflow = 'hidden';
+        progressContainer.style.marginBottom = '10px';
+
+        // Progress bar
+        var progressBar = document.createElement('div');
+        progressBar.style.height = '100%';
+        progressBar.style.backgroundColor = '#4CAF50';
+        progressBar.style.width = ((current / total) * 100) + '%';
+        progressBar.style.transition = 'width 0.3s ease';
+        progressContainer.appendChild(progressBar);
+        modal.appendChild(progressContainer);
+
+        // Progress text
+        var progressText = document.createElement('div');
+        progressText.textContent = `${current} of ${total} completed (${Math.round((current / total) * 100)}%)`;
+        progressText.style.fontSize = '12px';
+        modal.appendChild(progressText);
+
+        document.body.appendChild(modal);
+    }
+
+    // Function to hide batch progress
+    function hideBatchProgress() {
+        var modal = document.getElementById('batch-progress-modal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+
+
+    // Create batch download control panel
+    function createBatchDownloadPanel() {
+        var panel = document.createElement('div');
+        panel.style.position = 'fixed';
+        panel.style.top = '10px';
+        panel.style.right = '10px';
+        panel.style.padding = '10px';
+        panel.style.backgroundColor = '#333';
+        panel.style.color = '#fff';
+        panel.style.borderRadius = '5px';
+        panel.style.boxShadow = '0px 0px 10px rgba(0,0,0,0.5)';
+        panel.style.zIndex = '9999';
+        panel.style.fontSize = '12px';
+        panel.style.display = 'flex';
+        panel.style.flexDirection = 'column';
+        panel.style.gap = '8px';
+        panel.style.minWidth = '180px';
+
+        // Title
+        var title = document.createElement('div');
+        title.textContent = 'Batch H@H Download';
+        title.style.fontWeight = 'bold';
+        title.style.textAlign = 'center';
+        title.style.marginBottom = '5px';
+        panel.appendChild(title);
+
+        // Controls container
+        var controls = document.createElement('div');
+        controls.style.display = 'flex';
+        controls.style.flexDirection = 'column';
+        controls.style.gap = '5px';
+
+        // Select All/None buttons
+        var selectButtonsContainer = document.createElement('div');
+        selectButtonsContainer.style.display = 'flex';
+        selectButtonsContainer.style.gap = '5px';
+
+        var selectAllBtn = document.createElement('button');
+        selectAllBtn.textContent = 'Select All';
+        selectAllBtn.style.flex = '1';
+        selectAllBtn.style.padding = '3px 6px';
+        selectAllBtn.style.fontSize = '11px';
+        selectAllBtn.style.cursor = 'pointer';
+        selectAllBtn.style.border = '1px solid #555';
+        selectAllBtn.style.backgroundColor = '#444';
+        selectAllBtn.style.color = '#fff';
+        selectAllBtn.style.borderRadius = '3px';
+
+        var selectNoneBtn = document.createElement('button');
+        selectNoneBtn.textContent = 'Select None';
+        selectNoneBtn.style.flex = '1';
+        selectNoneBtn.style.padding = '3px 6px';
+        selectNoneBtn.style.fontSize = '11px';
+        selectNoneBtn.style.cursor = 'pointer';
+        selectNoneBtn.style.border = '1px solid #555';
+        selectNoneBtn.style.backgroundColor = '#444';
+        selectNoneBtn.style.color = '#fff';
+        selectNoneBtn.style.borderRadius = '3px';
+
+        selectButtonsContainer.appendChild(selectAllBtn);
+        selectButtonsContainer.appendChild(selectNoneBtn);
+        controls.appendChild(selectButtonsContainer);
+
+        // Selected count
+        var selectedCount = document.createElement('div');
+        selectedCount.id = 'selected-count';
+        selectedCount.textContent = 'Selected: 0';
+        selectedCount.style.textAlign = 'center';
+        selectedCount.style.fontSize = '11px';
+        selectedCount.style.color = '#aaa';
+        controls.appendChild(selectedCount);
+
+        // Download button
+        var batchDownloadBtn = document.createElement('button');
+        batchDownloadBtn.textContent = 'Download Selected H@H';
+        batchDownloadBtn.style.padding = '8px';
+        batchDownloadBtn.style.fontSize = '11px';
+        batchDownloadBtn.style.cursor = 'pointer';
+        batchDownloadBtn.style.border = '1px solid #4CAF50';
+        batchDownloadBtn.style.backgroundColor = '#4CAF50';
+        batchDownloadBtn.style.color = '#fff';
+        batchDownloadBtn.style.borderRadius = '3px';
+        batchDownloadBtn.style.fontWeight = 'bold';
+        controls.appendChild(batchDownloadBtn);
+
+        // Error log container (initially hidden)
+        var errorLogContainer = document.createElement('div');
+        errorLogContainer.id = 'error-log-container';
+        errorLogContainer.style.display = 'none';
+        errorLogContainer.style.marginTop = '8px';
+        errorLogContainer.style.border = '1px solid #ff6b6b';
+        errorLogContainer.style.borderRadius = '3px';
+        errorLogContainer.style.backgroundColor = '#2a1a1a';
+
+        var errorLogTitle = document.createElement('div');
+        errorLogTitle.textContent = 'Download Errors:';
+        errorLogTitle.style.fontSize = '10px';
+        errorLogTitle.style.color = '#ff6b6b';
+        errorLogTitle.style.padding = '3px 5px';
+        errorLogTitle.style.borderBottom = '1px solid #ff6b6b';
+        errorLogTitle.style.fontWeight = 'bold';
+        errorLogContainer.appendChild(errorLogTitle);
+
+        var errorLogText = document.createElement('textarea');
+        errorLogText.id = 'error-log-text';
+        errorLogText.style.width = '100%';
+        errorLogText.style.height = '80px';
+        errorLogText.style.fontSize = '9px';
+        errorLogText.style.backgroundColor = 'transparent';
+        errorLogText.style.color = '#ff9999';
+        errorLogText.style.border = 'none';
+        errorLogText.style.padding = '5px';
+        errorLogText.style.resize = 'none';
+        errorLogText.style.outline = 'none';
+        errorLogText.readOnly = true;
+        errorLogContainer.appendChild(errorLogText);
+
+        var clearLogBtn = document.createElement('button');
+        clearLogBtn.textContent = 'Clear Log';
+        clearLogBtn.style.width = '100%';
+        clearLogBtn.style.padding = '3px';
+        clearLogBtn.style.fontSize = '9px';
+        clearLogBtn.style.cursor = 'pointer';
+        clearLogBtn.style.border = '1px solid #ff6b6b';
+        clearLogBtn.style.backgroundColor = '#ff6b6b';
+        clearLogBtn.style.color = '#fff';
+        clearLogBtn.style.borderRadius = '0 0 3px 3px';
+        clearLogBtn.addEventListener('click', function() {
+            errorLogText.value = '';
+            errorLogContainer.style.display = 'none';
+        });
+        errorLogContainer.appendChild(clearLogBtn);
+
+        controls.appendChild(errorLogContainer);
+
+        panel.appendChild(controls);
+        document.body.appendChild(panel);
+
+        // Event listeners
+        selectAllBtn.addEventListener('click', function() {
+            var checkboxes = document.querySelectorAll('.gallery-batch-checkbox');
+            checkboxes.forEach(function(cb) { cb.checked = true; });
+            updateSelectedCount();
+        });
+
+        selectNoneBtn.addEventListener('click', function() {
+            var checkboxes = document.querySelectorAll('.gallery-batch-checkbox');
+            checkboxes.forEach(function(cb) { cb.checked = false; });
+            updateSelectedCount();
+        });
+
+        batchDownloadBtn.addEventListener('click', function() {
+            startBatchDownload();
+        });
+    }
+
+    // Function to update selected count
+    function updateSelectedCount() {
+        var checkboxes = document.querySelectorAll('.gallery-batch-checkbox:checked');
+        var countElement = document.getElementById('selected-count');
+        if (countElement) {
+            countElement.textContent = 'Selected: ' + checkboxes.length;
+        }
+    }
+
+    // Function to log errors
+    function logError(galleryTitle, galleryLink, errorMessage) {
+        var errorLogText = document.getElementById('error-log-text');
+        var errorLogContainer = document.getElementById('error-log-container');
+        
+        if (errorLogText && errorLogContainer) {
+            var timestamp = new Date().toLocaleTimeString();
+            var logEntry = `[${timestamp}] ${galleryTitle}\n${galleryLink}\nError: ${errorMessage}\n\n`;
+            errorLogText.value += logEntry;
+            errorLogContainer.style.display = 'block';
+            
+            // Scroll to bottom of textarea
+            errorLogText.scrollTop = errorLogText.scrollHeight;
+        }
+    }
+
+    // Create the batch download panel
+    createBatchDownloadPanel();
 
     // Loop through all gallery items on the search page
     var galleryItems = document.querySelectorAll('.gl1t');
 
     galleryItems.forEach(function(item) {
         var galleryLink = item.querySelector('a').href; // Get the gallery link
+        var galleryTitle = item.querySelector('.gl4t.glname.glink') ? 
+                          item.querySelector('.gl4t.glname.glink').textContent.trim() : 
+                          (item.querySelector('img') ? item.querySelector('img').title : 'Unknown Gallery'); // Get gallery title
+
+        // Add checkbox for batch download
+        var checkboxContainer = document.createElement('div');
+        checkboxContainer.style.display = 'flex';
+        checkboxContainer.style.alignItems = 'center';
+        checkboxContainer.style.gap = '5px';
+        checkboxContainer.style.marginBottom = '5px';
+
+        var checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'gallery-batch-checkbox';
+        checkbox.style.cursor = 'pointer';
+        checkbox.addEventListener('change', updateSelectedCount);
+        // Store gallery data for batch processing
+        checkbox.dataset.galleryLink = galleryLink;
+        checkbox.dataset.galleryTitle = galleryTitle;
+
+        var checkboxLabel = document.createElement('label');
+        checkboxLabel.textContent = 'Batch H@H';
+        checkboxLabel.style.fontSize = '11px';
+        checkboxLabel.style.cursor = 'pointer';
+        checkboxLabel.addEventListener('click', function() {
+            checkbox.checked = !checkbox.checked;
+            updateSelectedCount();
+        });
+
+        checkboxContainer.appendChild(checkbox);
+        checkboxContainer.appendChild(checkboxLabel);
+        item.appendChild(checkboxContainer);
 
         // Create a container div for buttons
         var buttonContainer = document.createElement('div');
@@ -276,4 +566,146 @@
             handleDownloadButton('hath');
         });
     });
+
+    // Batch download functionality
+    function startBatchDownload() {
+        var selectedCheckboxes = document.querySelectorAll('.gallery-batch-checkbox:checked');
+        
+        if (selectedCheckboxes.length === 0) {
+            showToast('Please select at least one gallery to download.');
+            return;
+        }
+
+        var totalCount = selectedCheckboxes.length;
+        var currentCount = 0;
+        var successCount = 0;
+        var failCount = 0;
+
+        showToast(`Starting batch download of ${totalCount} galleries...`);
+
+        // Process downloads sequentially with delay
+        function processNextDownload() {
+            if (currentCount >= totalCount) {
+                // All downloads completed
+                hideBatchProgress();
+                showToast(`Batch download completed! Success: ${successCount}, Failed: ${failCount}`);
+                return;
+            }
+
+            var checkbox = selectedCheckboxes[currentCount];
+            var galleryLink = checkbox.dataset.galleryLink;
+            var galleryTitle = checkbox.dataset.galleryTitle;
+
+            showBatchProgress(currentCount + 1, totalCount, galleryTitle);
+
+            // Process H@H download for this gallery
+            processGalleryHaHDownload(galleryLink, galleryTitle, function(success, errorMessage) {
+                if (success) {
+                    successCount++;
+                } else {
+                    failCount++;
+                    if (errorMessage) {
+                        logError(galleryTitle, galleryLink, errorMessage);
+                    }
+                }
+                currentCount++;
+                
+                // Wait 2 seconds before processing next download to avoid rate limiting
+                setTimeout(processNextDownload, 2000);
+            });
+        }
+
+        // Start processing
+        processNextDownload();
+    }
+
+    // Function to process H@H download for a single gallery
+    function processGalleryHaHDownload(galleryLink, galleryTitle, callback) {
+        console.log("Batch processing gallery: " + galleryLink);
+
+        GM_xmlhttpRequest({
+            method: 'GET',
+            url: galleryLink,
+            onload: function(response) {
+                if (response.status !== 200) {
+                    callback(false, `Failed to fetch gallery page (HTTP ${response.status})`);
+                    return;
+                }
+
+                var parser = new DOMParser();
+                var doc = parser.parseFromString(response.responseText, 'text/html');
+
+                var archiveDownloadAnchor = doc.querySelector('a[onclick^="return popUp"]');
+                
+                if (archiveDownloadAnchor) {
+                    var onclickContent = archiveDownloadAnchor.getAttribute('onclick');
+                    var archiveUrlMatch = onclickContent.match(/popUp\('(.+?)'/);
+                    
+                    if (archiveUrlMatch && archiveUrlMatch[1]) {
+                        var archiveUrl = archiveUrlMatch[1];
+
+                        GM_xmlhttpRequest({
+                            method: 'GET',
+                            url: archiveUrl,
+                            onload: function(archivePageResponse) {
+                                if (archivePageResponse.status !== 200) {
+                                    callback(false, `Failed to fetch archive page (HTTP ${archivePageResponse.status})`);
+                                    return;
+                                }
+
+                                var archiveDoc = parser.parseFromString(archivePageResponse.responseText, 'text/html');
+
+                                var formElement = archiveDoc.querySelector('#hathdl_form');
+                                if (formElement) {
+                                    var formAction = formElement.getAttribute('action');
+                                    var formData = new FormData(formElement);
+                                    formData.set('hathdl_xres', 'org');
+
+                                    GM_xmlhttpRequest({
+                                        method: 'POST',
+                                        url: formAction,
+                                        data: new URLSearchParams(formData),
+                                        onload: function(formSubmitResponse) {
+                                            if (formSubmitResponse.status !== 200) {
+                                                callback(false, `Failed to submit H@H form (HTTP ${formSubmitResponse.status})`);
+                                                return;
+                                            }
+
+                                            var successMessage = "An original resolution download has been queued for client";
+                                            var success = formSubmitResponse.responseText.includes(successMessage);
+                                            
+                                            if (success) {
+                                                callback(true);
+                                            } else {
+                                                // Try to extract error message from response
+                                                var errorDoc = parser.parseFromString(formSubmitResponse.responseText, 'text/html');
+                                                var errorElement = errorDoc.querySelector('.stuffbox') || errorDoc.querySelector('p');
+                                                var errorText = errorElement ? errorElement.textContent.trim() : 'Unknown error occurred';
+                                                callback(false, `H@H queue failed: ${errorText}`);
+                                            }
+                                        },
+                                        onerror: function(error) {
+                                            callback(false, `Network error submitting H@H form: ${error.error || 'Unknown network error'}`);
+                                        }
+                                    });
+                                } else {
+                                    callback(false, 'H@H form not found on archive page');
+                                }
+                            },
+                            onerror: function(error) {
+                                callback(false, `Network error fetching archive page: ${error.error || 'Unknown network error'}`);
+                            }
+                        });
+                    } else {
+                        callback(false, 'Could not extract archive URL from gallery page');
+                    }
+                } else {
+                    callback(false, 'Archive download link not found on gallery page');
+                }
+            },
+            onerror: function(error) {
+                callback(false, `Network error fetching gallery page: ${error.error || 'Unknown network error'}`);
+            }
+        });
+    }
 })();
