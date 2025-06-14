@@ -121,6 +121,9 @@
         // Helper function to handle downloads (Original, Resample, or H@H)
         function handleDownloadButton(archiveType) {
             console.log("Fetching gallery page: " + galleryLink); // Log the gallery link being accessed
+            if (archiveType === 'hath') {
+                showToast("Fetching gallery page...");
+            }
 
             // Step 1: Fetch the gallery page to find the archive download link
             GM_xmlhttpRequest({
@@ -135,6 +138,9 @@
                     
                     if (archiveDownloadAnchor) {
                         console.log("Found archiveDownloadAnchor:", archiveDownloadAnchor); // Log the anchor element
+                        if (archiveType === 'hath') {
+                            showToast("Found archive download link!");
+                        }
 
                         // Extract the URL from the onclick attribute (popUp() call)
                         var onclickContent = archiveDownloadAnchor.getAttribute('onclick');
@@ -143,6 +149,9 @@
                         if (archiveUrlMatch && archiveUrlMatch[1]) {
                             var archiveUrl = archiveUrlMatch[1];
                             console.log("Extracted archive URL:", archiveUrl); // Log the extracted URL
+                            if (archiveType === 'hath') {
+                                showToast("Extracted archive URL successfully!");
+                            }
 
                             // Step 2: Fetch the page where the form exists
                             GM_xmlhttpRequest({
@@ -171,6 +180,7 @@
                                                         showToast("H@H download successfully queued!");
                                                         console.log("H@H download successfully queued.");
                                                     } else {
+                                                        showToast("Failed to queue H@H download.");
                                                         console.log("Failed to queue H@H download.");
                                                     }
                                                 }
