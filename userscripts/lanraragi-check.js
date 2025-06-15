@@ -46,7 +46,7 @@
  * Disclaimer: 
  * - This script is not affiliated with LANraragi or ExHentai.
  * - It is a personal project and is not guaranteed to work with all LANraragi instances.
- * - The search is based on the title of the gallery, so false positives are possible if there are multiple galleries with the same titles.
+ * - The search is based on the Japanese title of the gallery, so false positives are possible if there are multiple galleries with the same titles.
  */
 
 (function() {
