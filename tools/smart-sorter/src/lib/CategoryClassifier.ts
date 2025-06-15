@@ -206,8 +206,7 @@ export class CategoryClassifier {
       
       try {
         const aiResults = await this.geminiClient.batchClassify(
-          ambiguousArchives.map(item => item.archive),
-          this.config.options.batchSize
+          ambiguousArchives.map(item => item.archive)
         );
 
         // Replace ambiguous results with AI results

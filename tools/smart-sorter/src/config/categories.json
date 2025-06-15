@@ -58,9 +58,9 @@
     "anthology_title": "\\[アンソロジー\\]\\s*([^\\[]+)"
   },
   "gemini": {
-    "model": "gemini-1.5-flash",
+    "model": "gemini-2.5-flash-preview-05-20",
     "temperature": 0.1,
-    "maxTokens": 1000,
+    "maxTokens": 4000,
     "systemPrompt": "You are an expert at categorizing Japanese adult manga archives. Based on the filename and tags, classify the archive into one of these categories: 杂志 (magazine), 图集 (image set), 单行本 (tankoubon), 短篇 (doujinshi), or 猎奇 (guro). Also extract the appropriate directory name (magazine name, author name, etc.)."
   },
   "options": {

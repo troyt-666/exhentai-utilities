@@ -86,7 +86,7 @@ class SmartArchiveSorter {
         this.interactiveSorter.addOperations(sortOperations);
         
         const confirmedOps = options.batchMode 
-          ? await this.interactiveSorter.quickConfirmationMode()
+          ? await this.interactiveSorter.batchConfirmationMode()
           : await this.interactiveSorter.interactiveConfirmation();
 
         this.interactiveSorter.displaySummary(confirmedOps);
