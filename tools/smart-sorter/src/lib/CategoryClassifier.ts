@@ -6,12 +6,18 @@ export class CategoryClassifier {
   private config: SortConfig;
   private analyzer: ArchiveAnalyzer;
   private geminiClient?: GeminiClient;
+  private logCallback?: (message: string) => void;
 
-  constructor(config: SortConfig, geminiApiKey?: string) {
+  constructor(config: SortConfig, geminiApiKey?: string, logCallback?: (message: string) => void) {
     this.config = config;
     this.analyzer = new ArchiveAnalyzer();
+    if (logCallback) {
+      this.logCallback = logCallback;
+    }
     
-    if (geminiApiKey) {
+    if (geminiApiKey && logCallback) {
+      this.geminiClient = new GeminiClient(geminiApiKey, config.gemini, logCallback);
+    } else if (geminiApiKey) {
       this.geminiClient = new GeminiClient(geminiApiKey, config.gemini);
     }
   }
@@ -154,7 +160,13 @@ export class CategoryClassifier {
     
     // For goudoushi, prefer circle name
     const preferCircle = tags.includes('other:goudoushi');
-    const { author, circle } = this.analyzer.extractAuthorFromFilename(filename);
+    const extracted = this.analyzer.extractAuthorFromFilename(filename);
+    const { author, circle, isCollaboration, fullCollaboration } = extracted;
+
+    // Log collaboration if detected
+    if (isCollaboration && this.logCallback && fullCollaboration) {
+      this.logCallback(`COLLABORATION: ${filename} - Full collaboration: ${fullCollaboration}`);
+    }
 
     if (preferCircle && circle) {
       return circle;

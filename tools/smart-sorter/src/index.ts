@@ -30,9 +30,15 @@ class SmartArchiveSorter {
   constructor(configPath: string, geminiApiKey?: string) {
     this.config = this.loadConfig(configPath);
     this.analyzer = new ArchiveAnalyzer();
-    this.classifier = new CategoryClassifier(this.config, geminiApiKey);
-    this.interactiveSorter = new InteractiveSorter();
     this.fileManager = new FileManager(this.config.options.logFile, false);
+    
+    // Create AI logging callback
+    const aiLogCallback = (message: string) => {
+      this.fileManager.logAIActivity(message);
+    };
+    
+    this.classifier = new CategoryClassifier(this.config, geminiApiKey, aiLogCallback);
+    this.interactiveSorter = new InteractiveSorter();
   }
 
   private loadConfig(configPath: string): SortConfig {
@@ -103,6 +109,14 @@ class SmartArchiveSorter {
       }
 
       console.log(chalk.green('✨ Sorting completed successfully!'));
+
+      // Cleanup resources
+      this.fileManager.cleanup();
+
+      // Force exit to prevent hanging
+      setTimeout(() => {
+        process.exit(0);
+      }, 100);
 
     } catch (error) {
       console.error(chalk.red('💥 Error during sorting:'), error instanceof Error ? error.message : 'Unknown error');
@@ -222,6 +236,10 @@ class SmartArchiveSorter {
     if (result.errors > 0) {
       console.log(chalk.red(`❌ ${result.errors} rollback operations failed`));
     }
+
+    // Cleanup and exit
+    this.fileManager.cleanup();
+    setTimeout(() => process.exit(0), 100);
   }
 
   listOperations(): void {
@@ -229,16 +247,19 @@ class SmartArchiveSorter {
     
     if (operations.length === 0) {
       console.log(chalk.yellow('No operations in history'));
-      return;
+    } else {
+      console.log(chalk.cyan(`📋 Operation History (${operations.length} operations):\n`));
+      
+      operations.forEach((op, index) => {
+        const timestamp = new Date(op.timestamp).toLocaleString();
+        console.log(chalk.gray(`${index + 1}. ${timestamp}`));
+        console.log(chalk.white(`   ${op.type}: ${path.basename(op.source)} → ${path.basename(op.target)}`));
+      });
     }
 
-    console.log(chalk.cyan(`📋 Operation History (${operations.length} operations):\n`));
-    
-    operations.forEach((op, index) => {
-      const timestamp = new Date(op.timestamp).toLocaleString();
-      console.log(chalk.gray(`${index + 1}. ${timestamp}`));
-      console.log(chalk.white(`   ${op.type}: ${path.basename(op.source)} → ${path.basename(op.target)}`));
-    });
+    // Cleanup and exit
+    this.fileManager.cleanup();
+    setTimeout(() => process.exit(0), 100);
   }
 }
 

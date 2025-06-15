@@ -1,10 +1,13 @@
 CLAUDE.md
 .env
+dist/
 
 # Logs
 *.log
 sort_log.txt
 error_log.txt
+smart_sort_log.txt
+smart_sort_log_operations.json
 
 # Temporary files
 *.tmp

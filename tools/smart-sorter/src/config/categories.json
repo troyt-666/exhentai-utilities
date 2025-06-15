@@ -48,12 +48,12 @@
     }
   },
   "patterns": {
-    "circle_author": "\\[([^(]+)\\(([^)]+)\\)\\]",
-    "event_circle_author": "\\([^)]+\\)\\[([^(]+)\\(([^)]+)\\)\\]",
+    "circle_author": "\\[([^(]+?)\\s*\\(([^)]+)\\)\\]",
+    "event_circle_author": "\\([^)]+\\)\\[([^(]+?)\\s*\\(([^)]+)\\)\\]",
     "author_only": "\\[([^\\]]+)\\]",
     "event_author": "\\([^)]+\\)\\[([^\\]]+)\\]",
-    "pixiv_artist": "\\[Pixiv\\]\\s*([^\\(]+)\\s*\\([^\\)]+\\)",
-    "fanbox_artist": "\\[(?:Fanbox|FANBOX)\\](?:\\[Pixiv\\])?\\s*([^\\|\\[]+)",
+    "pixiv_artist": "\\[Pixiv\\]\\s*([^\\(]+?)\\s*\\([^\\)]+\\)",
+    "fanbox_artist": "\\[(?:Fanbox|FANBOX)\\](?:\\[Pixiv\\])?\\s*([^\\|\\[~]+?)\\s*(?:\\(|~|\\[|$)",
     "magazine_name": "([A-Za-z\\s]+)\\s+(?:Vol\\.|\\d{4}年|20\\d{2})",
     "anthology_title": "\\[アンソロジー\\]\\s*([^\\[]+)"
   },

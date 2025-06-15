@@ -18,12 +18,33 @@ export class FileManager {
   private logFile: string;
   private verboseMode: boolean = false;
   private operationsFile: string;
+  private statusLines: number = 0; // Track how many status lines we've written
 
   constructor(logFile: string, verbose: boolean = false) {
     this.logFile = logFile;
     this.verboseMode = verbose;
     this.operationsFile = logFile.replace('.txt', '_operations.json');
     this.loadOperations();
+  }
+  
+  private clearStatusLines(): void {
+    if (!this.verboseMode && this.statusLines > 0) {
+      // Move cursor up and clear lines
+      for (let i = 0; i < this.statusLines; i++) {
+        process.stdout.write('\x1b[1A'); // Move cursor up one line
+        process.stdout.write('\x1b[2K'); // Clear entire line
+      }
+      this.statusLines = 0;
+    }
+  }
+  
+  private writeStatusLine(message: string): void {
+    if (!this.verboseMode) {
+      process.stdout.write(message + '\n');
+      this.statusLines++;
+    } else {
+      console.log(message);
+    }
   }
   
   private loadOperations(): void {
@@ -57,9 +78,8 @@ export class FileManager {
       const operation = sortOperations[i];
       const progress = `[${i + 1}/${sortOperations.length}]`;
       
-      if (this.verboseMode) {
-        console.log(chalk.gray(`${progress} Processing: ${operation.archive.filename}`));
-      }
+      // Show processing line
+      this.writeStatusLine(chalk.gray(`${progress} Processing: ${operation.archive.filename}`));
       
       try {
         // Check if file is locked before attempting operation
@@ -67,6 +87,8 @@ export class FileManager {
           operation.status = 'skipped';
           operation.error = 'File is locked by another process';
           skipped++;
+          
+          this.clearStatusLines();
           console.log(chalk.yellow(`⚠️  ${progress} Skipped (locked): ${operation.archive.filename}`));
           await this.logError(operation, new Error('File locked'));
           continue;
@@ -81,10 +103,13 @@ export class FileManager {
         operation.status = 'completed';
         success++;
         
+        this.clearStatusLines();
         console.log(chalk.green(`✅ ${progress} ${operation.archive.filename}`));
       } catch (error) {
         operation.status = 'error';
         operation.error = error instanceof Error ? error.message : 'Unknown error';
+        
+        this.clearStatusLines();
         
         // Check if error is due to file being locked
         if (error instanceof Error && (error.message.includes('EBUSY') || error.message.includes('locked'))) {
@@ -101,6 +126,9 @@ export class FileManager {
         await this.logError(operation, error);
       }
     }
+    
+    // Clear any remaining status lines
+    this.clearStatusLines();
 
     await this.logSummary(sortOperations, success, errors, dryRun, skipped);
     return { success, errors, skipped };
@@ -131,9 +159,19 @@ export class FileManager {
   private async executeMove(operation: SortOperation): Promise<void> {
     const { sourcePath, targetPath } = operation;
     
-    if (this.verboseMode) {
-      console.log(chalk.gray(`   Creating directory: ${path.dirname(targetPath)}`));
-    }
+    // Show progress steps
+    const updateStatus = (message: string) => {
+      if (this.verboseMode) {
+        console.log(chalk.gray(`   ${message}`));
+      } else {
+        // Clear previous status and write new one
+        this.clearStatusLines();
+        this.writeStatusLine(chalk.gray(`${operation.archive.filename.substring(0, 60)}...`));
+        this.writeStatusLine(chalk.gray(`   ${message}`));
+      }
+    };
+    
+    updateStatus('Creating directory...');
     
     // Ensure target directory exists
     const targetDir = path.dirname(targetPath);
@@ -144,35 +182,24 @@ export class FileManager {
       throw new Error(`Target file already exists: ${targetPath}`);
     }
 
-    if (this.verboseMode) {
-      console.log(chalk.gray(`   Moving file...`));
-    }
+    updateStatus('Moving file...');
     
     // Move the file with timeout
     try {
       await withTimeout(fs.move(sourcePath, targetPath), 30000, 'move');
-      if (this.verboseMode) {
-        console.log(chalk.green(`   Direct move successful`));
-      }
+      updateStatus('Move successful');
     } catch (error: any) {
       // If move fails due to cross-device link or permissions, try copy + delete
       if (error.code === 'EXDEV' || error.code === 'EACCES' || error.code === 'EPERM' || error.message.includes('timed out')) {
-        if (this.verboseMode) {
-          console.log(chalk.yellow(`   Move failed (${error.code || 'timeout'}), trying copy+delete...`));
-          console.log(chalk.gray(`   Copying file...`));
-        }
+        updateStatus(`Move failed (${error.code || 'timeout'}), copying...`);
         
         await withTimeout(fs.copy(sourcePath, targetPath), 60000, 'copy');
         
-        if (this.verboseMode) {
-          console.log(chalk.gray(`   Removing source file...`));
-        }
+        updateStatus('Removing source...');
         
         await withTimeout(fs.remove(sourcePath), 10000, 'remove');
         
-        if (this.verboseMode) {
-          console.log(chalk.green(`   Copy+delete successful`));
-        }
+        updateStatus('Copy+delete successful');
       } else {
         throw error;
       }
@@ -292,6 +319,16 @@ export class FileManager {
     }
   }
 
+  async logAIActivity(message: string): Promise<void> {
+    const logEntry = `${new Date().toISOString()} ${message}\n`;
+    
+    try {
+      await fs.appendFile(this.logFile, logEntry);
+    } catch (logError) {
+      console.error('Failed to write AI activity to log file:', logError);
+    }
+  }
+
   private async isFileLocked(filePath: string): Promise<boolean> {
     try {
       // Try to check if file is writable
@@ -344,6 +381,14 @@ ${dryRun ? 'Note: This was a dry run - no files were actually moved' : ''}
 
   getOperationHistory(): FileOperation[] {
     return [...this.operations];
+  }
+
+  cleanup(): void {
+    // Clear any remaining status lines
+    this.clearStatusLines();
+    
+    // Force save operations one final time
+    this.saveOperations();
   }
 
   async cleanupEmptyDirectories(targetDir: string): Promise<void> {

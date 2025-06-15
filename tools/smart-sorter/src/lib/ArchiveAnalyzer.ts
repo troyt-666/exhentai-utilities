@@ -115,33 +115,80 @@ export class ArchiveAnalyzer {
     return hasAnyMetadata ? metadata : undefined;
   }
 
-  extractAuthorFromFilename(filename: string): { author?: string; circle?: string } {
+  extractAuthorFromFilename(filename: string): { author?: string; circle?: string; isCollaboration?: boolean; fullCollaboration?: string } {
     // Remove .zip extension
     const cleanName = filename.replace(/\.zip$/i, '');
 
     // Pattern: [circle(author)]title or [circle (author)]title
-    const circleAuthorMatch = cleanName.match(/^\[([^(]+)\s*\(([^)]+)\)\]/);
+    const circleAuthorMatch = cleanName.match(/^\[([^(]+?)\s*\(([^)]+)\)\]/);
     if (circleAuthorMatch) {
+      const circlePart = circleAuthorMatch[1].trim();
+      const authorPart = circleAuthorMatch[2].trim();
+      
+      // Check for collaboration markers
+      const isCollaboration = circlePart.includes('、') || circlePart.includes('&') || 
+                              authorPart.includes('、') || authorPart.includes('&');
+      
+      if (isCollaboration) {
+        // Use first circle/author name + collaboration marker
+        const primaryCircle = circlePart.split(/[、&]/)[0].trim();
+        return {
+          circle: `${primaryCircle} (合作)`,
+          author: authorPart,
+          isCollaboration: true,
+          fullCollaboration: `${circlePart} (${authorPart})`
+        };
+      }
+      
       return {
-        circle: circleAuthorMatch[1].trim(),
-        author: circleAuthorMatch[2].trim()
+        circle: circlePart,
+        author: authorPart
       };
     }
 
     // Pattern: (event)[circle(author)]title
-    const eventCircleAuthorMatch = cleanName.match(/^\([^)]+\)\[([^(]+)\s*\(([^)]+)\)\]/);
+    const eventCircleAuthorMatch = cleanName.match(/^\([^)]+\)\[([^(]+?)\s*\(([^)]+)\)\]/);
     if (eventCircleAuthorMatch) {
+      const circlePart = eventCircleAuthorMatch[1].trim();
+      const authorPart = eventCircleAuthorMatch[2].trim();
+      
+      // Check for collaboration markers
+      const isCollaboration = circlePart.includes('、') || circlePart.includes('&') || 
+                              authorPart.includes('、') || authorPart.includes('&');
+      
+      if (isCollaboration) {
+        const primaryCircle = circlePart.split(/[、&]/)[0].trim();
+        return {
+          circle: `${primaryCircle} (合作)`,
+          author: authorPart,
+          isCollaboration: true,
+          fullCollaboration: `${circlePart} (${authorPart})`
+        };
+      }
+      
       return {
-        circle: eventCircleAuthorMatch[1].trim(),
-        author: eventCircleAuthorMatch[2].trim()
+        circle: circlePart,
+        author: authorPart
       };
     }
 
-    // Pattern: [author]title or (event)[author]title
+    // Pattern: [author]title or (event)[author]title - check for collaboration
     const authorMatch = cleanName.match(/^(?:\([^)]+\))?\[([^\]]+)\]/);
     if (authorMatch) {
+      const authorPart = authorMatch[1].trim();
+      
+      // Check for collaboration in author field
+      if (authorPart.includes('、') || authorPart.includes('&')) {
+        const primaryAuthor = authorPart.split(/[、&]/)[0].trim();
+        return {
+          author: `${primaryAuthor} (合作)`,
+          isCollaboration: true,
+          fullCollaboration: authorPart
+        };
+      }
+      
       return {
-        author: authorMatch[1].trim()
+        author: authorPart
       };
     }
 
@@ -176,19 +223,19 @@ export class ArchiveAnalyzer {
     const cleanName = filename.replace(/\.zip$/i, '');
 
     // Pattern: [Pixiv] artist (ID)
-    const pixivMatch = cleanName.match(/^\[Pixiv\]\s*([^(]+)\s*\(/);
+    const pixivMatch = cleanName.match(/^\[Pixiv\]\s*([^(]+?)\s*\(/);
     if (pixivMatch) {
       return pixivMatch[1].trim();
     }
 
-    // Pattern: [Fanbox][Pixiv] artist | 中文名
-    const fanboxMatch = cleanName.match(/^\[(?:Fanbox|FANBOX)\](?:\[Pixiv\])?\s*([^|\[]+)/);
+    // Pattern: [Fanbox] artist (~date) or [Fanbox] artist [ID]
+    const fanboxMatch = cleanName.match(/^\[(?:Fanbox|FANBOX)\](?:\[Pixiv\])?\s*([^|\[~(]+?)(?:\s*[~(]|\s*\[|$)/);
     if (fanboxMatch) {
       return fanboxMatch[1].trim();
     }
 
     // Pattern: [FANBOX + Twitter] artist (YEAR ~ YEAR)
-    const socialMatch = cleanName.match(/^\[(?:FANBOX|Twitter|Patreon)[^]]*\]\s*([^(]+)/);
+    const socialMatch = cleanName.match(/^\[(?:FANBOX|Twitter|Patreon)[^]]*\]\s*([^(]+?)\s*(?:\(|$)/);
     if (socialMatch) {
       return socialMatch[1].trim();
     }
