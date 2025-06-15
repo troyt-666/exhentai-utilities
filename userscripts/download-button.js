@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         ExHentai Download Button with Batch Support
-// @namespace    https://github.com/yourusername/exhentai-utilities
+// @namespace    https://github.com/troyt-666/exhentai-utilities
 // @version      1.3.0
 // @description  Adds download buttons (Original, Resample, H@H) to ExHentai/E-Hentai galleries with batch download support. Features progress tracking, error logging, and GP-aware downloading.
 // @author       Troy T
-// @homepageURL  https://github.com/yourusername/exhentai-utilities
-// @supportURL   https://github.com/yourusername/exhentai-utilities/issues
-// @updateURL    https://raw.githubusercontent.com/yourusername/exhentai-utilities/main/userscripts/download-button.js
-// @downloadURL  https://raw.githubusercontent.com/yourusername/exhentai-utilities/main/userscripts/download-button.js
+// @homepageURL  https://github.com/troyt-666/exhentai-utilities
+// @supportURL   https://github.com/troyt-666/exhentai-utilities/issues
+// @updateURL    https://raw.githubusercontent.com/troyt-666/exhentai-utilities/main/userscripts/download-button.js
+// @downloadURL  https://raw.githubusercontent.com/troyt-666/exhentai-utilities/main/userscripts/download-button.js
 // @match        https://exhentai.org/
 // @match        https://exhentai.org/?*
 // @match        https://e-hentai.org/
@@ -34,7 +34,7 @@
  * - Toast notifications for H@H operations
  * 
  * Part of the ExHentai Utilities toolkit:
- * https://github.com/yourusername/exhentai-utilities
+ * https://github.com/troyt-666/exhentai-utilities
  * 
  * Installation:
  * 1. Install Tampermonkey or compatible userscript manager
@@ -189,34 +189,55 @@
     // Create batch download control panel
     function createBatchDownloadPanel() {
         var panel = document.createElement('div');
+        panel.id = 'batch-download-panel';
         panel.style.position = 'fixed';
         panel.style.top = '10px';
         panel.style.right = '10px';
-        panel.style.padding = '10px';
         panel.style.backgroundColor = '#333';
         panel.style.color = '#fff';
         panel.style.borderRadius = '5px';
         panel.style.boxShadow = '0px 0px 10px rgba(0,0,0,0.5)';
         panel.style.zIndex = '9999';
         panel.style.fontSize = '12px';
-        panel.style.display = 'flex';
-        panel.style.flexDirection = 'column';
-        panel.style.gap = '8px';
-        panel.style.minWidth = '180px';
+        panel.style.transition = 'all 0.3s ease';
 
-        // Title
+        // Create toggle button (always visible)
+        var toggleButton = document.createElement('div');
+        toggleButton.id = 'batch-toggle-btn';
+        toggleButton.innerHTML = '📥 Batch H@H';
+        toggleButton.style.padding = '8px 12px';
+        toggleButton.style.cursor = 'pointer';
+        toggleButton.style.backgroundColor = '#4CAF50';
+        toggleButton.style.borderRadius = '5px';
+        toggleButton.style.fontWeight = 'bold';
+        toggleButton.style.textAlign = 'center';
+        toggleButton.style.userSelect = 'none';
+        toggleButton.style.fontSize = '11px';
+        toggleButton.title = 'Click to expand/collapse batch download panel';
+        panel.appendChild(toggleButton);
+
+        // Create collapsible content container
+        var contentContainer = document.createElement('div');
+        contentContainer.id = 'batch-content';
+        contentContainer.style.display = 'none';
+        contentContainer.style.padding = '10px';
+        contentContainer.style.borderTop = '1px solid #555';
+        contentContainer.style.marginTop = '0';
+
+        // Title for expanded view
         var title = document.createElement('div');
         title.textContent = 'Batch H@H Download';
         title.style.fontWeight = 'bold';
         title.style.textAlign = 'center';
-        title.style.marginBottom = '5px';
-        panel.appendChild(title);
+        title.style.marginBottom = '10px';
+        contentContainer.appendChild(title);
 
         // Controls container
         var controls = document.createElement('div');
         controls.style.display = 'flex';
         controls.style.flexDirection = 'column';
-        controls.style.gap = '5px';
+        controls.style.gap = '8px';
+        controls.style.minWidth = '180px';
 
         // Select All/None buttons
         var selectButtonsContainer = document.createElement('div');
@@ -321,8 +342,26 @@
 
         controls.appendChild(errorLogContainer);
 
-        panel.appendChild(controls);
+        contentContainer.appendChild(controls);
+        panel.appendChild(contentContainer);
         document.body.appendChild(panel);
+
+        // Toggle functionality
+        var isExpanded = false;
+        toggleButton.addEventListener('click', function() {
+            isExpanded = !isExpanded;
+            if (isExpanded) {
+                contentContainer.style.display = 'block';
+                toggleButton.innerHTML = '📤 Batch H@H';
+                toggleButton.style.backgroundColor = '#ff6b6b';
+                toggleButton.title = 'Click to collapse panel';
+            } else {
+                contentContainer.style.display = 'none';
+                toggleButton.innerHTML = '📥 Batch H@H';
+                toggleButton.style.backgroundColor = '#4CAF50';
+                toggleButton.title = 'Click to expand panel';
+            }
+        });
 
         // Event listeners
         selectAllBtn.addEventListener('click', function() {
