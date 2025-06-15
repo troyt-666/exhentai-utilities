@@ -1,15 +1,17 @@
 // ==UserScript==
 // @name         LANraragi Library Checker for ExHentai
 // @namespace    https://github.com/troyt-666/exhentai-utilities
-// @version      0.1.0
+// @version      0.1.1
 // @description  Check if ExHentai/E-Hentai galleries exist in your LANraragi library. Shows visual indicators on gallery thumbnails.
 // @author       Troy T
 // @homepageURL  https://github.com/troyt-666/exhentai-utilities
 // @supportURL   https://github.com/troyt-666/exhentai-utilities/issues
 // @updateURL    https://raw.githubusercontent.com/troyt-666/exhentai-utilities/main/userscripts/lanraragi-check.js
 // @downloadURL  https://raw.githubusercontent.com/troyt-666/exhentai-utilities/main/userscripts/lanraragi-check.js
-// @match        https://exhentai.org/*
-// @match        https://e-hentai.org/*
+// @match        https://exhentai.org/
+// @match        https://exhentai.org/?*
+// @match        https://e-hentai.org/
+// @match        https://e-hentai.org/?*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -41,10 +43,18 @@
  * - Green border: Gallery exists in your library
  * - Red border: Gallery not in library
  * - Yellow border: Similar gallery found (fuzzy match)
+ * Disclaimer: 
+ * - This script is not affiliated with LANraragi or ExHentai.
+ * - It is a personal project and is not guaranteed to work with all LANraragi instances.
+ * - The search is based on the title of the gallery, so false positives are possible if there are multiple galleries with the same titles.
  */
 
 (function() {
     'use strict';
+
+    console.log('=== LANraragi Checker Userscript Starting ===');
+    console.log('Script URL:', GM_info.script.name);
+    console.log('Script Version:', GM_info.script.version);
 
     // Configuration - Update these values
     const CONFIG = {
@@ -55,8 +65,10 @@
         cacheExpiry: 3600000, // 1 hour in milliseconds
         enableIndicators: true,
         enableTooltips: true,
-        debugMode: false
+        debugMode: true // Enable debug logging
     };
+
+    console.log('LANraragi Checker: Script loaded with config:', CONFIG);
 
     // CSS styles for indicators
     GM_addStyle(`
@@ -127,11 +139,14 @@
         get: function(key) {
             const cached = GM_getValue(`cache_${key}`, null);
             if (cached && Date.now() - cached.timestamp < CONFIG.cacheExpiry) {
+                console.log(`Cache hit for key: ${key}`, cached.data);
                 return cached.data;
             }
+            console.log(`Cache miss for key: ${key}`);
             return null;
         },
         set: function(key, data) {
+            console.log(`Setting cache for key: ${key}`, data);
             GM_setValue(`cache_${key}`, {
                 data: data,
                 timestamp: Date.now()
@@ -151,19 +166,37 @@
     // API functions
     const api = {
         searchByTitle: async function(title) {
+            console.log(`Searching for title: ${title}`);
             const cached = cache.get(`title_${title}`);
-            if (cached !== null) return cached;
+            if (cached !== null) {
+                console.log(`Using cached result for: ${title}`);
+                return cached;
+            }
 
             try {
+                // Build headers - only add Authorization if API key exists
+                const headers = {};
+                if (CONFIG.apiKey) {
+                    headers['Authorization'] = `Bearer ${CONFIG.apiKey}`;
+                }
+
+                const searchUrl = `${CONFIG.lanraragiUrl}/api/search?filter=${encodeURIComponent(title)}`;
+                console.log(`Making API request to: ${searchUrl}`);
+                console.log(`Request headers:`, headers);
+                
                 const response = await gmFetch({
                     method: 'GET',
-                    url: `${CONFIG.lanraragiUrl}/api/search?title=${encodeURIComponent(title)}`,
-                    headers: {
-                        'Authorization': `Bearer ${CONFIG.apiKey}`
-                    }
+                    url: searchUrl,
+                    headers: headers
                 });
+                
+                console.log(`API response status: ${response.status}`);
+                console.log(`API response text:`, response.responseText);
 
                 const data = JSON.parse(response.responseText);
+                console.log(`Parsed API response:`, data);
+                console.log(`Archives found: ${data.data ? data.data.length : 0}`);
+                
                 const result = {
                     exists: data.data && data.data.length > 0,
                     similar: false,
@@ -175,10 +208,8 @@
                     const simplified = simplifyTitle(title);
                     const similarResponse = await gmFetch({
                         method: 'GET',
-                        url: `${CONFIG.lanraragiUrl}/api/search?title=${encodeURIComponent(simplified)}`,
-                        headers: {
-                            'Authorization': `Bearer ${CONFIG.apiKey}`
-                        }
+                        url: `${CONFIG.lanraragiUrl}/api/search?filter=${encodeURIComponent(simplified)}`,
+                        headers: headers
                     });
                     const similarData = JSON.parse(similarResponse.responseText);
                     if (similarData.data && similarData.data.length > 0) {
@@ -188,9 +219,11 @@
                 }
 
                 cache.set(`title_${title}`, result);
+                console.log(`Search result for "${title}":`, result);
                 return result;
             } catch (error) {
-                console.error('LANraragi API error:', error);
+                console.error(`LANraragi API error for title "${title}":`, error);
+                console.error('Error details:', error.message, error.stack);
                 return { exists: false, similar: false, error: true };
             }
         }
@@ -198,11 +231,18 @@
 
     // Utility functions
     function gmFetch(options) {
+        console.log('Making GM_xmlhttpRequest:', options.url);
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
                 ...options,
-                onload: resolve,
-                onerror: reject
+                onload: (response) => {
+                    console.log('GM_xmlhttpRequest response received:', response.status);
+                    resolve(response);
+                },
+                onerror: (error) => {
+                    console.error('GM_xmlhttpRequest error:', error);
+                    reject(error);
+                }
             });
         });
     }
@@ -219,17 +259,28 @@
 
     function extractGalleryInfo(element) {
         // Extract title and other info from gallery element
+        console.log('Extracting gallery info from element:', element);
+        console.log('Element classes:', element.className);
+        console.log('Element HTML:', element.innerHTML.substring(0, 200) + '...');
+        
         const titleElement = element.querySelector('.glink, .gl3t a, .gl4t a');
-        if (!titleElement) return null;
+        if (!titleElement) {
+            console.log('No title element found with selectors: .glink, .gl3t a, .gl4t a');
+            console.log('Available links in element:', element.querySelectorAll('a'));
+            return null;
+        }
 
-        return {
+        const info = {
             title: titleElement.textContent.trim(),
             element: element,
             link: titleElement.href
         };
+        console.log('Extracted gallery info:', info);
+        return info;
     }
 
     function applyIndicator(element, status) {
+        console.log(`Applying indicator "${status}" to element:`, element);
         // Remove existing indicators
         element.classList.remove('lanraragi-in-library', 'lanraragi-not-in-library', 
                                 'lanraragi-similar-exists', 'lanraragi-checking');
@@ -261,11 +312,26 @@
     }
 
     async function checkGalleries() {
+        console.log('Starting gallery check...');
+        console.log('Page body exists:', !!document.body);
+        console.log('Document title:', document.title);
+        
+        // Debug: Check what elements exist on the page
+        console.log('Debug - Looking for gallery containers...');
+        console.log('Elements with class "gl1t":', document.querySelectorAll('.gl1t').length);
+        console.log('Elements with class "gl3t":', document.querySelectorAll('.gl3t').length); 
+        console.log('Elements with class "gl4t":', document.querySelectorAll('.gl4t').length);
+        console.log('Elements with class "id1":', document.querySelectorAll('.id1').length);
+        console.log('Elements with class "itg":', document.querySelectorAll('.itg').length);
+        console.log('Elements with class "gl1e":', document.querySelectorAll('.gl1e').length);
+        
         // Find all gallery items on the page
         const galleries = document.querySelectorAll('.gl1t, .gl3t, .gl4t, .id1');
+        console.log(`Found ${galleries.length} gallery elements on page`);
         const uncheckedGalleries = [];
 
-        galleries.forEach(gallery => {
+        galleries.forEach((gallery, index) => {
+            console.log(`Processing gallery ${index + 1}/${galleries.length}`);
             if (!gallery.dataset.lanraragiChecked) {
                 const info = extractGalleryInfo(gallery);
                 if (info) {
@@ -275,14 +341,19 @@
             }
         });
 
+        console.log(`Found ${uncheckedGalleries.length} unchecked galleries to process`);
+        
         // Process in batches
         for (let i = 0; i < uncheckedGalleries.length; i += CONFIG.batchSize) {
             const batch = uncheckedGalleries.slice(i, i + CONFIG.batchSize);
+            console.log(`Processing batch ${Math.floor(i/CONFIG.batchSize) + 1}, galleries ${i + 1}-${Math.min(i + CONFIG.batchSize, uncheckedGalleries.length)}`);
             
             await Promise.all(batch.map(async (galleryInfo) => {
+                console.log(`Checking gallery: "${galleryInfo.title}"`);
                 const result = await api.searchByTitle(galleryInfo.title);
                 
                 if (result.error) {
+                    console.error(`Error checking gallery "${galleryInfo.title}"`);
                     // API error - remove indicator
                     galleryInfo.element.classList.remove('lanraragi-checking');
                 } else if (result.exists) {
@@ -311,8 +382,8 @@
             <h3>LANraragi Configuration</h3>
             <label>Server URL:</label>
             <input type="text" id="lanraragi-url" value="${CONFIG.lanraragiUrl}" />
-            <label>API Key:</label>
-            <input type="password" id="lanraragi-api-key" value="${CONFIG.apiKey}" />
+            <label>API Key (optional):</label>
+            <input type="password" id="lanraragi-api-key" value="${CONFIG.apiKey}" placeholder="Leave blank if not required" />
             <button id="lanraragi-save">Save</button>
             <button id="lanraragi-test">Test Connection</button>
             <button id="lanraragi-clear-cache">Clear Cache</button>
@@ -347,16 +418,21 @@
             status.textContent = 'Testing connection...';
             
             try {
+                // Build headers - only add Authorization if API key exists
+                const headers = {};
+                if (CONFIG.apiKey) {
+                    headers['Authorization'] = `Bearer ${CONFIG.apiKey}`;
+                }
+
                 const response = await gmFetch({
                     method: 'GET',
                     url: `${CONFIG.lanraragiUrl}/api/info`,
-                    headers: {
-                        'Authorization': `Bearer ${CONFIG.apiKey}`
-                    }
+                    headers: headers
                 });
                 
                 if (response.status === 200) {
-                    status.textContent = '✓ Connection successful!';
+                    const authStatus = CONFIG.apiKey ? ' (with API key)' : ' (no API key)';
+                    status.textContent = '✓ Connection successful' + authStatus + '!';
                     status.style.color = '#4CAF50';
                 } else {
                     status.textContent = '✗ Connection failed!';
@@ -377,20 +453,31 @@
 
     // Main initialization
     function init() {
+        console.log('=== LANraragi Checker Initializing ===');
+        console.log('Current URL:', window.location.href);
+        console.log('Config:', CONFIG);
+        
         if (!CONFIG.apiKey) {
-            console.log('LANraragi Checker: No API key configured. Click the settings button to configure.');
+            console.log('LANraragi Checker: Running without API key. Some LANraragi instances may require authentication.');
+        } else {
+            console.log('LANraragi Checker: API key is configured');
         }
 
+        console.log('Creating config panel...');
         createConfigPanel();
 
-        // Initial check
-        if (CONFIG.enableIndicators && CONFIG.apiKey) {
+        // Initial check - works with or without API key
+        if (CONFIG.enableIndicators) {
+            console.log('Indicators enabled, starting initial gallery check...');
             checkGalleries();
+        } else {
+            console.log('Indicators disabled, skipping gallery check');
         }
 
         // Monitor for dynamically loaded content
-        const observer = new MutationObserver((mutations) => {
-            if (CONFIG.enableIndicators && CONFIG.apiKey) {
+        const observer = new MutationObserver(() => {
+            console.log('DOM mutation detected, checking for new galleries...');
+            if (CONFIG.enableIndicators) {
                 checkGalleries();
             }
         });
@@ -407,9 +494,12 @@
     }
 
     // Wait for page to load
+    console.log('Document ready state:', document.readyState);
     if (document.readyState === 'loading') {
+        console.log('Waiting for DOMContentLoaded...');
         document.addEventListener('DOMContentLoaded', init);
     } else {
+        console.log('DOM already loaded, initializing immediately...');
         init();
     }
 })();
