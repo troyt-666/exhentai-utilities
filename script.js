@@ -4,8 +4,10 @@
 // @version      1.2.3
 // @description  Add a button to download the original, resampled archive or use H@H directly from the search page on ExHentai or E-Hentai. The download is simply a shortcut for the normal download process, so it still consumes GP and follows the same rules.
 // @author       Troy T
-// @match        https://exhentai.org/*
-// @match        https://e-hentai.org/*
+// @match        https://exhentai.org/
+// @match        https://exhentai.org/?*
+// @match        https://e-hentai.org/
+// @match        https://e-hentai.org/?*
 // @connect      exhentai.org
 // @connect      e-hentai.org
 // @connect      hath.network
