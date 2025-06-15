@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         LANraragi Library Checker for ExHentai
-// @namespace    https://github.com/yourusername/exhentai-utilities
+// @namespace    https://github.com/troyt-666/exhentai-utilities
 // @version      0.1.0
 // @description  Check if ExHentai/E-Hentai galleries exist in your LANraragi library. Shows visual indicators on gallery thumbnails.
-// @author       Your Name
-// @homepageURL  https://github.com/yourusername/exhentai-utilities
-// @supportURL   https://github.com/yourusername/exhentai-utilities/issues
-// @updateURL    https://raw.githubusercontent.com/yourusername/exhentai-utilities/main/userscripts/lanraragi-check.js
-// @downloadURL  https://raw.githubusercontent.com/yourusername/exhentai-utilities/main/userscripts/lanraragi-check.js
+// @author       Troy T
+// @homepageURL  https://github.com/troyt-666/exhentai-utilities
+// @supportURL   https://github.com/troyt-666/exhentai-utilities/issues
+// @updateURL    https://raw.githubusercontent.com/troyt-666/exhentai-utilities/main/userscripts/lanraragi-check.js
+// @downloadURL  https://raw.githubusercontent.com/troyt-666/exhentai-utilities/main/userscripts/lanraragi-check.js
 // @match        https://exhentai.org/*
 // @match        https://e-hentai.org/*
 // @grant        GM_xmlhttpRequest
@@ -30,7 +30,7 @@
  * - Caches results to reduce API calls
  * 
  * Part of the ExHentai Utilities toolkit:
- * https://github.com/yourusername/exhentai-utilities
+ * https://github.com/troyt-666/exhentai-utilities
  * 
  * Configuration:
  * 1. Set your LANraragi server URL and API key below

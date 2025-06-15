@@ -44,7 +44,7 @@ export interface SortOperation {
   classification: ClassificationResult;
   sourcePath: string;
   targetPath: string;
-  status: 'pending' | 'confirmed' | 'skipped' | 'completed' | 'error';
+  status: 'pending' | 'confirmed' | 'skipped' | 'completed' | 'error' | 'locked';
   error?: string;
 }
 

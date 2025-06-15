@@ -32,7 +32,7 @@ class SmartArchiveSorter {
     this.analyzer = new ArchiveAnalyzer();
     this.classifier = new CategoryClassifier(this.config, geminiApiKey);
     this.interactiveSorter = new InteractiveSorter();
-    this.fileManager = new FileManager(this.config.options.logFile);
+    this.fileManager = new FileManager(this.config.options.logFile, false);
   }
 
   private loadConfig(configPath: string): SortConfig {
@@ -47,6 +47,9 @@ class SmartArchiveSorter {
 
   async run(options: SortOptions): Promise<void> {
     console.log(chalk.cyan('🚀 Smart Archive Sorter\n'));
+    
+    // Update file manager with verbose mode
+    this.fileManager = new FileManager(this.config.options.logFile, options.logLevel === 'debug' || options.logLevel === 'info');
 
     try {
       // Validate directories
@@ -200,6 +203,12 @@ class SmartArchiveSorter {
     if (result.errors > 0) {
       console.log(chalk.yellow(`\n⚠️  ${result.errors} operations failed. Check log file for details.`));
     }
+    
+    // Show locked files hint if any were skipped
+    if ('skipped' in result && result.skipped > 0) {
+      console.log(chalk.yellow(`\n💡 Tip: ${result.skipped} files were skipped because they're locked by other programs.`));
+      console.log(chalk.yellow(`   Close any programs that might be using these files and try again.`));
+    }
   }
 
   async rollback(count?: number): Promise<void> {
@@ -279,7 +288,7 @@ program
   .option('-n, --count <number>', 'Number of operations to rollback (default: all)', 
     (value) => parseInt(value))
   .option('-c, --config <path>', 'Path to configuration file', 
-    path.join(path.dirname(new URL(import.meta.url).pathname), 'config', 'categories.json'))
+    path.join(__dirname, 'config', 'categories.json'))
   .action(async (opts) => {
     const sorter = new SmartArchiveSorter(opts.config);
     await sorter.rollback(opts.count);
@@ -289,7 +298,7 @@ program
   .command('history')
   .description('Show operation history')
   .option('-c, --config <path>', 'Path to configuration file', 
-    path.join(path.dirname(new URL(import.meta.url).pathname), 'config', 'categories.json'))
+    path.join(__dirname, 'config', 'categories.json'))
   .action(async (opts) => {
     const sorter = new SmartArchiveSorter(opts.config);
     sorter.listOperations();

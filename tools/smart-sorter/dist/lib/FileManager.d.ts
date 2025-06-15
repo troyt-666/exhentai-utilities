@@ -2,10 +2,15 @@ import { SortOperation, FileOperation } from '../types/index.js';
 export declare class FileManager {
     private operations;
     private logFile;
-    constructor(logFile: string);
+    private verboseMode;
+    private operationsFile;
+    constructor(logFile: string, verbose?: boolean);
+    private loadOperations;
+    private saveOperations;
     executeOperations(sortOperations: SortOperation[], dryRun?: boolean): Promise<{
         success: number;
         errors: number;
+        skipped: number;
     }>;
     private simulateMove;
     private executeMove;
@@ -20,6 +25,7 @@ export declare class FileManager {
     }>;
     createDirectoryStructure(targetDir: string, categories: string[]): Promise<void>;
     private logError;
+    private isFileLocked;
     private logSummary;
     getOperationHistory(): FileOperation[];
     cleanupEmptyDirectories(targetDir: string): Promise<void>;

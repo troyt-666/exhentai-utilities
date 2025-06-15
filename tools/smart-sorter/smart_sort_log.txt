@@ -20,3 +20,22 @@ Successful: 0
 Errors: 4
 
 ----------------------------------------
+2025-06-15T05:37:28.406Z ERROR: COMIC BAVEL 2025年6月号 [中国翻訳] [無修正] [DL版] [3364898].zip - EBUSY: resource busy or locked, unlink 'G:\LANraragi\source\COMIC BAVEL 2025年6月号 [中国翻訳] [無修正] [DL版] [3364898].zip'
+2025-06-15T05:37:58.503Z ERROR: [Pixiv] たけえなわ (29985260) [3397725].zip - EBUSY: resource busy or locked, unlink 'G:\LANraragi\source\[Pixiv] たけえなわ (29985260) [3397725].zip'
+2025-06-15T05:38:28.540Z ERROR: [アンソロジー] LQ -Little Queen- Vol.63 [DL版] [3398167].zip - EBUSY: resource busy or locked, unlink 'G:\LANraragi\source\[アンソロジー] LQ -Little Queen- Vol.63 [DL版] [3398167].zip'
+
+2025-06-15T05:38:51.812Z EXECUTION SUMMARY:
+Total operations: 5
+Successful: 2
+Errors: 3
+
+----------------------------------------
+2025-06-15T06:01:24.481Z ERROR: [アンソロジー] LQ -Little Queen- Vol.63 [DL版] [3398167].zip - File locked
+
+2025-06-15T06:01:24.496Z EXECUTION SUMMARY:
+Total operations: 5
+Successful: 4
+Errors: 0
+Skipped (locked): 1
+
+----------------------------------------
