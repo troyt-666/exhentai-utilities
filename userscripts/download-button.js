@@ -684,8 +684,8 @@
                 }
                 currentCount++;
                 
-                // Wait 2 seconds before processing next download to avoid rate limiting
-                setTimeout(processNextDownload, 2000);
+                // Wait 800ms before processing next download to avoid rate limiting
+                setTimeout(processNextDownload, 800);
             });
         }
 
@@ -695,89 +695,120 @@
 
     // Function to process H@H download for a single gallery
     function processGalleryHaHDownload(galleryLink, galleryTitle, callback) {
-        console.log("Batch processing gallery: " + galleryLink);
+        console.log("[TRACE] Batch processing gallery: " + galleryLink);
+        console.log("[TRACE] Gallery title: " + galleryTitle);
+        console.log("[TRACE] Fetching gallery page: " + galleryLink);
 
         GM_xmlhttpRequest({
             method: 'GET',
             url: galleryLink,
             onload: function(response) {
                 if (response.status !== 200) {
+                    console.log("[TRACE] Failed to fetch gallery page, HTTP status: " + response.status);
                     callback(false, `Failed to fetch gallery page (HTTP ${response.status})`);
                     return;
                 }
 
+                console.log("[TRACE] Successfully fetched gallery page");
                 var parser = new DOMParser();
                 var doc = parser.parseFromString(response.responseText, 'text/html');
 
                 var archiveDownloadAnchor = doc.querySelector('a[onclick^="return popUp"]');
                 
                 if (archiveDownloadAnchor) {
+                    console.log("[TRACE] Found archiveDownloadAnchor:", archiveDownloadAnchor);
+                    console.log("[TRACE] Found archive download link!");
+                    
                     var onclickContent = archiveDownloadAnchor.getAttribute('onclick');
+                    console.log("[TRACE] Onclick content: " + onclickContent);
                     var archiveUrlMatch = onclickContent.match(/popUp\('(.+?)'/);
                     
                     if (archiveUrlMatch && archiveUrlMatch[1]) {
                         var archiveUrl = archiveUrlMatch[1];
+                        console.log("[TRACE] Extracted archive URL: " + archiveUrl);
+                        console.log("[TRACE] Extracted archive URL successfully!");
 
                         GM_xmlhttpRequest({
                             method: 'GET',
                             url: archiveUrl,
                             onload: function(archivePageResponse) {
                                 if (archivePageResponse.status !== 200) {
+                                    console.log("[TRACE] Failed to fetch archive page, HTTP status: " + archivePageResponse.status);
                                     callback(false, `Failed to fetch archive page (HTTP ${archivePageResponse.status})`);
                                     return;
                                 }
 
+                                console.log("[TRACE] Successfully fetched archive page");
                                 var archiveDoc = parser.parseFromString(archivePageResponse.responseText, 'text/html');
 
                                 var formElement = archiveDoc.querySelector('#hathdl_form');
                                 if (formElement) {
+                                    console.log("[TRACE] Found H@H form element");
                                     var formAction = formElement.getAttribute('action');
+                                    console.log("[TRACE] Form action URL: " + formAction);
                                     var formData = new FormData(formElement);
                                     formData.set('hathdl_xres', 'org');
+                                    console.log("[TRACE] Set hathdl_xres to 'org' for original resolution");
 
+                                    console.log("[TRACE] Submitting H@H form...");
                                     GM_xmlhttpRequest({
                                         method: 'POST',
                                         url: formAction,
                                         data: new URLSearchParams(formData),
                                         onload: function(formSubmitResponse) {
                                             if (formSubmitResponse.status !== 200) {
+                                                console.log("[TRACE] Failed to submit H@H form, HTTP status: " + formSubmitResponse.status);
                                                 callback(false, `Failed to submit H@H form (HTTP ${formSubmitResponse.status})`);
                                                 return;
                                             }
 
+                                            console.log("[TRACE] Successfully submitted H@H form");
                                             var successMessage = "An original resolution download has been queued for client";
                                             var success = formSubmitResponse.responseText.includes(successMessage);
                                             
                                             if (success) {
+                                                console.log("[TRACE] H@H download successfully queued for: " + galleryTitle);
                                                 callback(true);
                                             } else {
+                                                console.log("[TRACE] H@H queue failed - success message not found in response");
+                                                console.log("[TRACE] Response text: " + formSubmitResponse.responseText.substring(0, 500) + "...");
                                                 // Try to extract error message from response
                                                 var errorDoc = parser.parseFromString(formSubmitResponse.responseText, 'text/html');
                                                 var errorElement = errorDoc.querySelector('.stuffbox') || errorDoc.querySelector('p');
                                                 var errorText = errorElement ? errorElement.textContent.trim() : 'Unknown error occurred';
+                                                console.log("[TRACE] Extracted error text: " + errorText);
                                                 callback(false, `H@H queue failed: ${errorText}`);
                                             }
                                         },
                                         onerror: function(error) {
+                                            console.log("[TRACE] Network error submitting H@H form: " + (error.error || 'Unknown network error'));
                                             callback(false, `Network error submitting H@H form: ${error.error || 'Unknown network error'}`);
                                         }
                                     });
                                 } else {
+                                    console.log("[TRACE] H@H form element not found on archive page");
+                                    console.log("[TRACE] Archive page HTML: " + archivePageResponse.responseText.substring(0, 1000) + "...");
                                     callback(false, 'H@H form not found on archive page');
                                 }
                             },
                             onerror: function(error) {
+                                console.log("[TRACE] Network error fetching archive page: " + (error.error || 'Unknown network error'));
                                 callback(false, `Network error fetching archive page: ${error.error || 'Unknown network error'}`);
                             }
                         });
                     } else {
+                        console.log("[TRACE] Could not extract archive URL from onclick attribute");
+                        console.log("[TRACE] Onclick content was: " + onclickContent);
                         callback(false, 'Could not extract archive URL from gallery page');
                     }
                 } else {
+                    console.log("[TRACE] Archive download link not found on gallery page");
+                    console.log("[TRACE] Gallery page HTML: " + response.responseText.substring(0, 1000) + "...");
                     callback(false, 'Archive download link not found on gallery page');
                 }
             },
             onerror: function(error) {
+                console.log("[TRACE] Network error fetching gallery page: " + (error.error || 'Unknown network error'));
                 callback(false, `Network error fetching gallery page: ${error.error || 'Unknown network error'}`);
             }
         });
