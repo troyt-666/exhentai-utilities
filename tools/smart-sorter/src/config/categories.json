@@ -1,0 +1,75 @@
+{
+  "categories": {
+    "猎奇": {
+      "tags": ["female:guro"],
+      "priority": 1,
+      "description": "Guro content - highest priority",
+      "useAuthorDir": true
+    },
+    "单行本": {
+      "tags": ["other:tankoubon"],
+      "priority": 2,
+      "description": "Full volume manga collections",
+      "useAuthorDir": true
+    },
+    "杂志": {
+      "tags": ["other:anthology"],
+      "excludeTags": ["other:goudoushi"],
+      "priority": 3,
+      "description": "Magazine collections",
+      "useAuthorDir": false,
+      "subdirectoryPattern": "magazine",
+      "patterns": [
+        "COMIC\\s+([A-Z]+)",
+        "([A-Za-z\\s]+)\\s+Vol\\.",
+        "LQ\\s+-Little Queen-",
+        "COMIC\\s+BAVEL",
+        "COMIC\\s+HOTMILK"
+      ]
+    },
+    "图集": {
+      "patterns": [
+        "\\[Pixiv\\]",
+        "\\[Fanbox\\]",
+        "\\[FANBOX\\]",
+        "\\[Twitter\\]",
+        "\\[Patreon\\]"
+      ],
+      "priority": 4,
+      "description": "Image sets from social platforms",
+      "useAuthorDir": true,
+      "subdirectoryPattern": "author"
+    },
+    "短篇": {
+      "priority": 5,
+      "description": "Default doujinshi category",
+      "useAuthorDir": true,
+      "default": true
+    }
+  },
+  "patterns": {
+    "circle_author": "\\[([^(]+)\\(([^)]+)\\)\\]",
+    "event_circle_author": "\\([^)]+\\)\\[([^(]+)\\(([^)]+)\\)\\]",
+    "author_only": "\\[([^\\]]+)\\]",
+    "event_author": "\\([^)]+\\)\\[([^\\]]+)\\]",
+    "pixiv_artist": "\\[Pixiv\\]\\s*([^\\(]+)\\s*\\([^\\)]+\\)",
+    "fanbox_artist": "\\[(?:Fanbox|FANBOX)\\](?:\\[Pixiv\\])?\\s*([^\\|\\[]+)",
+    "magazine_name": "([A-Za-z\\s]+)\\s+(?:Vol\\.|\\d{4}年|20\\d{2})",
+    "anthology_title": "\\[アンソロジー\\]\\s*([^\\[]+)"
+  },
+  "gemini": {
+    "model": "gemini-1.5-flash",
+    "temperature": 0.1,
+    "maxTokens": 1000,
+    "systemPrompt": "You are an expert at categorizing Japanese adult manga archives. Based on the filename and tags, classify the archive into one of these categories: 杂志 (magazine), 图集 (image set), 单行本 (tankoubon), 短篇 (doujinshi), or 猎奇 (guro). Also extract the appropriate directory name (magazine name, author name, etc.)."
+  },
+  "options": {
+    "createAuthorDirs": true,
+    "skipExisting": true,
+    "logFile": "smart_sort_log.txt",
+    "tempDir": "/tmp",
+    "sanitizeNames": true,
+    "batchSize": 50,
+    "confirmationThreshold": 0.8
+  }
+}

@@ -1,0 +1,22 @@
+2025-06-15T05:06:00.983Z ERROR: COMIC BAVEL 2025年6月号 [中国翻訳] [無修正] [DL版] [3364898].zip - EACCES: permission denied, rename '/mnt/g/LANraragi/source/COMIC BAVEL 2025年6月号 [中国翻訳] [無修正] [DL版] [3364898].zip' -> '/mnt/g/LANraragi/dest/杂志/COMIC BAVEL/COMIC BAVEL 2025年6月号 [中国翻訳] [無修正] [DL版] [3364898].zip'
+2025-06-15T05:06:01.019Z ERROR: [Pixiv] たけえなわ (29985260) [3397725].zip - EACCES: permission denied, rename '/mnt/g/LANraragi/source/[Pixiv] たけえなわ (29985260) [3397725].zip' -> '/mnt/g/LANraragi/dest/图集/たけえなわ/[Pixiv] たけえなわ (29985260) [3397725].zip'
+2025-06-15T05:06:01.056Z ERROR: [アンソロジー] LQ -Little Queen- Vol.63 [DL版] [3398167].zip - EACCES: permission denied, rename '/mnt/g/LANraragi/source/[アンソロジー] LQ -Little Queen- Vol.63 [DL版] [3398167].zip' -> '/mnt/g/LANraragi/dest/杂志/LQ -Little Queen-/[アンソロジー] LQ -Little Queen- Vol.63 [DL版] [3398167].zip'
+2025-06-15T05:06:01.125Z ERROR: [蒼色彼方 (色谷あすか)] 無知っこサキュバス調教開発 [中国翻訳] [無修正] [DL版] [2447191].zip - EACCES: permission denied, rename '/mnt/g/LANraragi/source/[蒼色彼方 (色谷あすか)] 無知っこサキュバス調教開発 [中国翻訳] [無修正] [DL版] [2447191].zip' -> '/mnt/g/LANraragi/dest/短篇/蒼色彼方/[蒼色彼方 (色谷あすか)] 無知っこサキュバス調教開発 [中国翻訳] [無修正] [DL版] [2447191].zip'
+
+2025-06-15T05:06:01.128Z EXECUTION SUMMARY:
+Total operations: 5
+Successful: 1
+Errors: 4
+
+----------------------------------------
+2025-06-15T05:32:26.494Z ERROR: COMIC BAVEL 2025年6月号 [中国翻訳] [無修正] [DL版] [3364898].zip - EACCES: permission denied, unlink '/mnt/g/LANraragi/source/COMIC BAVEL 2025年6月号 [中国翻訳] [無修正] [DL版] [3364898].zip'
+2025-06-15T05:32:29.726Z ERROR: [Pixiv] たけえなわ (29985260) [3397725].zip - EACCES: permission denied, unlink '/mnt/g/LANraragi/source/[Pixiv] たけえなわ (29985260) [3397725].zip'
+2025-06-15T05:32:31.544Z ERROR: [アンソロジー] LQ -Little Queen- Vol.63 [DL版] [3398167].zip - EACCES: permission denied, unlink '/mnt/g/LANraragi/source/[アンソロジー] LQ -Little Queen- Vol.63 [DL版] [3398167].zip'
+2025-06-15T05:32:37.093Z ERROR: [蒼色彼方 (色谷あすか)] 無知っこサキュバス調教開発 [中国翻訳] [無修正] [DL版] [2447191].zip - EACCES: permission denied, unlink '/mnt/g/LANraragi/source/[蒼色彼方 (色谷あすか)] 無知っこサキュバス調教開発 [中国翻訳] [無修正] [DL版] [2447191].zip'
+
+2025-06-15T05:32:37.097Z EXECUTION SUMMARY:
+Total operations: 4
+Successful: 0
+Errors: 4
+
+----------------------------------------
