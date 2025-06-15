@@ -1,0 +1,46 @@
+{
+  "server": {
+    "url": "http://localhost:3000",
+    "api_key": "YOUR_API_KEY_HERE",
+    "timeout": 5000
+  },
+  "features": {
+    "check_duplicates": true,
+    "show_indicators": true,
+    "auto_sync_metadata": false,
+    "cache_results": true,
+    "cache_duration": 3600
+  },
+  "indicators": {
+    "in_library": {
+      "border_color": "#4CAF50",
+      "border_width": "3px",
+      "icon": "✓",
+      "tooltip": "Already in library"
+    },
+    "not_in_library": {
+      "border_color": "#F44336",
+      "border_width": "3px",
+      "icon": "✗",
+      "tooltip": "Not in library"
+    },
+    "similar_exists": {
+      "border_color": "#FF9800",
+      "border_width": "3px",
+      "icon": "≈",
+      "tooltip": "Similar title exists"
+    }
+  },
+  "matching": {
+    "use_title": true,
+    "use_tags": false,
+    "similarity_threshold": 0.8,
+    "ignore_brackets": true,
+    "normalize_titles": true
+  },
+  "api_endpoints": {
+    "search": "/api/search",
+    "database_stats": "/api/stats",
+    "archive_info": "/api/archives/{id}/metadata"
+  }
+}

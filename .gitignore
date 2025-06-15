@@ -1,0 +1,74 @@
+CLAUDE.md
+
+# Logs
+*.log
+sort_log.txt
+error_log.txt
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Archive files (for testing)
+*.zip
+*.rar
+*.7z
+
+# Test directories
+test/
+tests/sample-archives/*.zip
+unsorted/
+library/
+
+# Configuration overrides
+config/*.local.json
+config/override.json
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Python (for future tools)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+
+# Node.js (for future web interface)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Private data
+private/
+credentials/
+api_keys.txt
+
+# Archive working directories
+/tmp/
+extracted/
