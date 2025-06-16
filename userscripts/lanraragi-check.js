@@ -65,6 +65,7 @@
         cacheExpiry: 3600000, // 1 hour in milliseconds
         enableIndicators: true,
         enableTooltips: true,
+        highlightNotInLibrary: GM_getValue('highlight_not_in_library', false), // Toggle for red highlighting
         debugMode: true // Enable debug logging
     };
 
@@ -110,7 +111,8 @@
             display: none;
             box-shadow: 0 2px 10px rgba(0,0,0,0.5);
         }
-        .lanraragi-config-panel input {
+        .lanraragi-config-panel input[type="text"],
+        .lanraragi-config-panel input[type="password"] {
             width: 100%;
             margin: 5px 0;
             padding: 5px;
@@ -118,6 +120,20 @@
             color: white;
             border: 1px solid #555;
             border-radius: 3px;
+            box-sizing: border-box;
+        }
+        .lanraragi-config-panel label {
+            display: block;
+            margin: 10px 0 5px 0;
+        }
+        .lanraragi-config-panel label.checkbox-label {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .lanraragi-config-panel input[type="checkbox"] {
+            width: auto;
+            margin: 0 8px 0 0;
         }
         .lanraragi-config-toggle {
             position: fixed;
@@ -300,9 +316,11 @@
                 }
                 break;
             case 'not-found':
-                element.classList.add('lanraragi-not-in-library');
-                if (CONFIG.enableTooltips) {
-                    element.title = 'Not in LANraragi library';
+                if (CONFIG.highlightNotInLibrary) {
+                    element.classList.add('lanraragi-not-in-library');
+                    if (CONFIG.enableTooltips) {
+                        element.title = 'Not in LANraragi library';
+                    }
                 }
                 break;
             case 'checking':
@@ -384,6 +402,10 @@
             <input type="text" id="lanraragi-url" value="${CONFIG.lanraragiUrl}" />
             <label>API Key (optional):</label>
             <input type="password" id="lanraragi-api-key" value="${CONFIG.apiKey}" placeholder="Leave blank if not required" />
+            <label class="checkbox-label">
+                <input type="checkbox" id="lanraragi-highlight-toggle" ${CONFIG.highlightNotInLibrary ? 'checked' : ''}>
+                Highlight galleries not in library with red border
+            </label>
             <button id="lanraragi-save">Save</button>
             <button id="lanraragi-test">Test Connection</button>
             <button id="lanraragi-clear-cache">Clear Cache</button>
@@ -406,8 +428,10 @@
         document.getElementById('lanraragi-save').addEventListener('click', () => {
             CONFIG.lanraragiUrl = document.getElementById('lanraragi-url').value;
             CONFIG.apiKey = document.getElementById('lanraragi-api-key').value;
+            CONFIG.highlightNotInLibrary = document.getElementById('lanraragi-highlight-toggle').checked;
             GM_setValue('lanraragi_url', CONFIG.lanraragiUrl);
             GM_setValue('lanraragi_api_key', CONFIG.apiKey);
+            GM_setValue('highlight_not_in_library', CONFIG.highlightNotInLibrary);
             document.getElementById('lanraragi-status').textContent = 'Settings saved!';
             cache.clear();
             setTimeout(() => location.reload(), 1000);
