@@ -181,9 +181,10 @@
 
     // API functions
     const api = {
-        searchByTitle: async function(title) {
-            console.log(`Searching for title: ${title}`);
-            const cached = cache.get(`title_${title}`);
+        searchByTitle: async function(title, galleryId = null) {
+            console.log(`Searching for title: ${title}, gallery ID: ${galleryId}`);
+            const cacheKey = galleryId ? `title_${title}_${galleryId}` : `title_${title}`;
+            const cached = cache.get(cacheKey);
             if (cached !== null) {
                 console.log(`Using cached result for: ${title}`);
                 return cached;
@@ -214,33 +215,58 @@
                 console.log(`Archives found: ${data.data ? data.data.length : 0}`);
                 
                 const result = {
-                    exists: data.data && data.data.length > 0,
+                    exists: false,
                     similar: false,
+                    exactMatch: false,
                     archives: data.data || []
                 };
 
-                // Check for similar titles if exact match not found
-                if (!result.exists && title.length > 10) {
-                    const simplified = simplifyTitle(title);
-                    const similarResponse = await gmFetch({
-                        method: 'GET',
-                        url: `${CONFIG.lanraragiUrl}/api/search?filter=${encodeURIComponent(simplified)}`,
-                        headers: headers
-                    });
-                    const similarData = JSON.parse(similarResponse.responseText);
-                    if (similarData.data && similarData.data.length > 0) {
-                        result.similar = true;
-                        result.archives = similarData.data;
+                // Check for matches
+                if (data.data && data.data.length > 0) {
+                    // If we have a gallery ID, check for exact ID matches first
+                    if (galleryId) {
+                        const exactIdMatch = data.data.find(archive => {
+                            const archiveId = extractGalleryIdFromFilename(archive.filename);
+                            return archiveId === galleryId;
+                        });
+                        
+                        if (exactIdMatch) {
+                            console.log(`Found exact gallery ID match: ${galleryId}`);
+                            result.exists = true;
+                            result.exactMatch = true;
+                        } else {
+                            console.log(`Found title match but no gallery ID match for: ${galleryId}`);
+                            result.similar = true;
+                        }
+                    } else {
+                        // No gallery ID available, treat as exact match
+                        result.exists = true;
+                        result.exactMatch = true;
+                    }
+                } else {
+                    // Check for similar titles if no match found
+                    if (title.length > 10) {
+                        const simplified = simplifyTitle(title);
+                        const similarResponse = await gmFetch({
+                            method: 'GET',
+                            url: `${CONFIG.lanraragiUrl}/api/search?filter=${encodeURIComponent(simplified)}`,
+                            headers: headers
+                        });
+                        const similarData = JSON.parse(similarResponse.responseText);
+                        if (similarData.data && similarData.data.length > 0) {
+                            result.similar = true;
+                            result.archives = similarData.data;
+                        }
                     }
                 }
 
-                cache.set(`title_${title}`, result);
+                cache.set(cacheKey, result);
                 console.log(`Search result for "${title}":`, result);
                 return result;
             } catch (error) {
                 console.error(`LANraragi API error for title "${title}":`, error);
                 console.error('Error details:', error.message, error.stack);
-                return { exists: false, similar: false, error: true };
+                return { exists: false, similar: false, exactMatch: false, error: true };
             }
         }
     };
@@ -279,6 +305,7 @@
         console.log('Element classes:', element.className);
         console.log('Element HTML:', element.innerHTML.substring(0, 200) + '...');
         
+        // Look for the title element (which contains the text)
         const titleElement = element.querySelector('.glink, .gl3t a, .gl4t a');
         if (!titleElement) {
             console.log('No title element found with selectors: .glink, .gl3t a, .gl4t a');
@@ -286,13 +313,41 @@
             return null;
         }
 
+        // Get the link - if titleElement is a div.glink, find its parent <a>
+        let linkElement;
+        if (titleElement.tagName === 'DIV' && titleElement.classList.contains('glink')) {
+            linkElement = titleElement.closest('a');
+        } else {
+            linkElement = titleElement;
+        }
+
+        if (!linkElement || !linkElement.href) {
+            console.log('No valid link element found');
+            return null;
+        }
+
         const info = {
             title: titleElement.textContent.trim(),
             element: element,
-            link: titleElement.href
+            link: linkElement.href,
+            galleryId: extractGalleryId(linkElement.href)
         };
         console.log('Extracted gallery info:', info);
         return info;
+    }
+
+    function extractGalleryId(url) {
+        // Extract gallery ID from ExHentai URL like https://exhentai.org/g/1560600/21011d7fbf/
+        if (!url) return null;
+        const match = url.match(/\/g\/(\d+)\//);
+        return match ? match[1] : null;
+    }
+
+    function extractGalleryIdFromFilename(filename) {
+        // Extract gallery ID from H@H archive filename like [author] title [1560600]
+        if (!filename) return null;
+        const match = filename.match(/\[(\d{7,})\]/);
+        return match ? match[1] : null;
     }
 
     function applyIndicator(element, status) {
@@ -312,7 +367,7 @@
             case 'similar':
                 element.classList.add('lanraragi-similar-exists');
                 if (CONFIG.enableTooltips) {
-                    element.title = 'Similar title exists in library';
+                    element.title = 'Similar title exists in library (gallery ID mismatch)';
                 }
                 break;
             case 'not-found':
@@ -367,14 +422,14 @@
             console.log(`Processing batch ${Math.floor(i/CONFIG.batchSize) + 1}, galleries ${i + 1}-${Math.min(i + CONFIG.batchSize, uncheckedGalleries.length)}`);
             
             await Promise.all(batch.map(async (galleryInfo) => {
-                console.log(`Checking gallery: "${galleryInfo.title}"`);
-                const result = await api.searchByTitle(galleryInfo.title);
+                console.log(`Checking gallery: "${galleryInfo.title}" with ID: ${galleryInfo.galleryId}`);
+                const result = await api.searchByTitle(galleryInfo.title, galleryInfo.galleryId);
                 
                 if (result.error) {
                     console.error(`Error checking gallery "${galleryInfo.title}"`);
                     // API error - remove indicator
                     galleryInfo.element.classList.remove('lanraragi-checking');
-                } else if (result.exists) {
+                } else if (result.exists && result.exactMatch) {
                     applyIndicator(galleryInfo.element, 'exists');
                 } else if (result.similar) {
                     applyIndicator(galleryInfo.element, 'similar');
