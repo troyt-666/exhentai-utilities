@@ -278,8 +278,7 @@ program
   .argument('<target>', 'Target directory for sorted archives')
   .option('-c, --config <path>', 'Path to configuration file', 
     path.join(__dirname, 'config', 'categories.json'))
-  .option('-i, --interactive', 'Enable interactive confirmation mode', true)
-  .option('-b, --batch', 'Use quick batch confirmation mode', false)
+  .option('-m, --mode <type>', 'Confirmation mode: batch, interactive, or auto', 'batch')
   .option('-d, --dry-run', 'Simulate operations without moving files', false)
   .option('-v, --verbose', 'Enable verbose logging', false)
   .action(async (source, target, opts) => {
@@ -293,9 +292,9 @@ program
       sourceDir: path.resolve(source),
       targetDir: path.resolve(target),
       configPath: opts.config,
-      interactive: opts.interactive,
+      interactive: opts.mode !== 'auto',
       dryRun: opts.dryRun,
-      batchMode: opts.batch,
+      batchMode: opts.mode === 'batch',
       logLevel: opts.verbose ? 'debug' : 'info'
     };
 
