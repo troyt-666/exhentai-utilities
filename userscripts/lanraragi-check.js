@@ -10,12 +10,18 @@
 // @downloadURL  https://raw.githubusercontent.com/troyt-666/exhentai-utilities/main/userscripts/lanraragi-check.js
 // @match        https://exhentai.org/
 // @match        https://exhentai.org/?*
+// @match        https://exhentai.org/tag/*
+// @match        https://exhentai.org/favorites.php*
 // @match        https://e-hentai.org/
 // @match        https://e-hentai.org/?*
+// @match        https://e-hentai.org/tag/*
+// @match        https://e-hentai.org/favorites.php*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_addStyle
+// @grant        GM_listValues
+// @grant        GM_deleteValue
 // @connect      localhost
 // @connect      *
 // @license      MIT
@@ -66,28 +72,33 @@
         enableIndicators: true,
         enableTooltips: true,
         highlightNotInLibrary: GM_getValue('highlight_not_in_library', false), // Toggle for red highlighting
-        debugMode: true // Enable debug logging
+        // debugMode: true // Enable debug logging
+        debugMode: false // Disable debug logging
     };
 
     console.log('LANraragi Checker: Script loaded with config:', CONFIG);
 
-    // CSS styles for indicators
+    // CSS styles for indicators - apply to thumbnail container
     GM_addStyle(`
-        .lanraragi-in-library {
+        .gl3t.lanraragi-in-library {
             border: 3px solid #4CAF50 !important;
             box-shadow: 0 0 5px #4CAF50;
+            box-sizing: border-box !important;
         }
-        .lanraragi-not-in-library {
+        .gl3t.lanraragi-not-in-library {
             border: 3px solid #F44336 !important;
             box-shadow: 0 0 5px #F44336;
+            box-sizing: border-box !important;
         }
-        .lanraragi-similar-exists {
+        .gl3t.lanraragi-similar-exists {
             border: 3px solid #FF9800 !important;
             box-shadow: 0 0 5px #FF9800;
+            box-sizing: border-box !important;
         }
-        .lanraragi-checking {
+        .gl3t.lanraragi-checking {
             opacity: 0.7;
             border: 3px dashed #2196F3 !important;
+            box-sizing: border-box !important;
         }
         .lanraragi-tooltip {
             position: absolute;
@@ -169,13 +180,26 @@
             });
         },
         clear: function() {
-            // Clear all cache entries
-            const keys = GM_listValues();
-            keys.forEach(key => {
-                if (key.startsWith('cache_')) {
-                    GM_deleteValue(key);
+            // Clear all cache entries created by this script
+            if (typeof GM_listValues === 'function' && typeof GM_deleteValue === 'function') {
+                const keys = GM_listValues();
+                keys.forEach(key => {
+                    if (key.startsWith('cache_')) {
+                        GM_deleteValue(key);
+                    }
+                });
+                console.log('Cache cleared via GM_deleteValue');
+            } else {
+                // Fallback for environments where GM_listValues / GM_deleteValue are not available
+                console.warn('GM_listValues / GM_deleteValue not available, falling back to manual deletion');
+                // Iterate over localStorage keys used by Tampermonkey ("<script id>_<key>")
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.includes('cache_')) {
+                        localStorage.removeItem(key);
+                    }
                 }
-            });
+            }
         }
     };
 
@@ -345,105 +369,141 @@
 
     function extractGalleryIdFromFilename(filename) {
         // Extract gallery ID from H@H archive filename like [author] title [1560600]
+        // Earlier versions expected 7-digit IDs, but ExHentai gallery IDs can be fewer
+        // (e.g. 6-digit 590775). Relax the requirement to 5 or more digits to avoid
+        // missing valid matches while still ignoring small numbers such as chapter
+        // counts or years (usually 1-4 digits).
         if (!filename) return null;
-        const match = filename.match(/\[(\d{7,})\]/);
+        const match = filename.match(/\[(\d{5,})\]/);
         return match ? match[1] : null;
     }
 
-    function applyIndicator(element, status) {
+    function applyIndicator(element, status, archives = []) {
         console.log(`Applying indicator "${status}" to element:`, element);
-        // Remove existing indicators
-        element.classList.remove('lanraragi-in-library', 'lanraragi-not-in-library', 
-                                'lanraragi-similar-exists', 'lanraragi-checking');
+        
+        // Find the thumbnail container within the gallery element
+        // Look for .gl3t, which specifically holds the thumbnail image.
+        let thumbnailContainer = element.querySelector('.gl3t');
+        
+        // If we can't find a thumbnail container, apply to the element itself
+        if (!thumbnailContainer) {
+            thumbnailContainer = element;
+        }
+        
+        // Remove existing indicators from BOTH the main element and thumbnail container
+        // This prevents conflicting classes from previous checks
+        const classesToRemove = ['lanraragi-in-library', 'lanraragi-not-in-library', 
+                                'lanraragi-similar-exists', 'lanraragi-checking'];
+        
+        // Clear from main gallery element
+        element.classList.remove(...classesToRemove);
+        
+        // Clear from thumbnail container
+        thumbnailContainer.classList.remove(...classesToRemove);
+        
+        // Also clear from any child elements that might have these classes
+        element.querySelectorAll('.lanraragi-in-library, .lanraragi-not-in-library, .lanraragi-similar-exists, .lanraragi-checking')
+            .forEach(el => el.classList.remove(...classesToRemove));
 
-        // Apply new indicator
+        // Apply new indicator to the thumbnail container only
         switch (status) {
             case 'exists':
-                element.classList.add('lanraragi-in-library');
+                thumbnailContainer.classList.add('lanraragi-in-library');
                 if (CONFIG.enableTooltips) {
-                    element.title = 'Already in LANraragi library';
+                    thumbnailContainer.title = 'Already in LANraragi library';
                 }
                 break;
             case 'similar':
-                element.classList.add('lanraragi-similar-exists');
+                thumbnailContainer.classList.add('lanraragi-similar-exists');
                 if (CONFIG.enableTooltips) {
-                    element.title = 'Similar title exists in library (gallery ID mismatch)';
+                    thumbnailContainer.title = 'Similar title exists in library (gallery ID mismatch)';
+                    const titleElement = element.querySelector('.glink');
+                    if (titleElement && archives.length > 0) {
+                        const archiveTitles = archives.map(archive => archive.title).join('\n');
+                        titleElement.title = `Found similar:\n${archiveTitles}`;
+                    }
                 }
                 break;
             case 'not-found':
                 if (CONFIG.highlightNotInLibrary) {
-                    element.classList.add('lanraragi-not-in-library');
+                    thumbnailContainer.classList.add('lanraragi-not-in-library');
                     if (CONFIG.enableTooltips) {
-                        element.title = 'Not in LANraragi library';
+                        thumbnailContainer.title = 'Not in LANraragi library';
                     }
                 }
                 break;
             case 'checking':
-                element.classList.add('lanraragi-checking');
+                thumbnailContainer.classList.add('lanraragi-checking');
                 break;
         }
     }
 
+    let isChecking = false;
     async function checkGalleries() {
-        console.log('Starting gallery check...');
-        console.log('Page body exists:', !!document.body);
-        console.log('Document title:', document.title);
-        
-        // Debug: Check what elements exist on the page
-        console.log('Debug - Looking for gallery containers...');
-        console.log('Elements with class "gl1t":', document.querySelectorAll('.gl1t').length);
-        console.log('Elements with class "gl3t":', document.querySelectorAll('.gl3t').length); 
-        console.log('Elements with class "gl4t":', document.querySelectorAll('.gl4t').length);
-        console.log('Elements with class "id1":', document.querySelectorAll('.id1').length);
-        console.log('Elements with class "itg":', document.querySelectorAll('.itg').length);
-        console.log('Elements with class "gl1e":', document.querySelectorAll('.gl1e').length);
-        
-        // Find all gallery items on the page
-        const galleries = document.querySelectorAll('.gl1t, .gl3t, .gl4t, .id1');
-        console.log(`Found ${galleries.length} gallery elements on page`);
-        const uncheckedGalleries = [];
-
-        galleries.forEach((gallery, index) => {
-            console.log(`Processing gallery ${index + 1}/${galleries.length}`);
-            if (!gallery.dataset.lanraragiChecked) {
-                const info = extractGalleryInfo(gallery);
-                if (info) {
-                    uncheckedGalleries.push(info);
-                    applyIndicator(gallery, 'checking');
-                }
-            }
-        });
-
-        console.log(`Found ${uncheckedGalleries.length} unchecked galleries to process`);
-        
-        // Process in batches
-        for (let i = 0; i < uncheckedGalleries.length; i += CONFIG.batchSize) {
-            const batch = uncheckedGalleries.slice(i, i + CONFIG.batchSize);
-            console.log(`Processing batch ${Math.floor(i/CONFIG.batchSize) + 1}, galleries ${i + 1}-${Math.min(i + CONFIG.batchSize, uncheckedGalleries.length)}`);
+        if (isChecking) return;
+        isChecking = true;
+        try {
+            console.log('Starting gallery check...');
+            console.log('Page body exists:', !!document.body);
+            console.log('Document title:', document.title);
+            // Debug: Check what elements exist on the page
+            console.log('Debug - Looking for gallery containers...');
+            console.log('Elements with class "gl1t":', document.querySelectorAll('.gl1t').length);
+            console.log('Elements with class "gl3t":', document.querySelectorAll('.gl3t').length); 
+            console.log('Elements with class "gl4t":', document.querySelectorAll('.gl4t').length);
+            console.log('Elements with class "id1":', document.querySelectorAll('.id1').length);
+            console.log('Elements with class "itg":', document.querySelectorAll('.itg').length);
+            console.log('Elements with class "gl1e":', document.querySelectorAll('.gl1e').length);
             
-            await Promise.all(batch.map(async (galleryInfo) => {
-                console.log(`Checking gallery: "${galleryInfo.title}" with ID: ${galleryInfo.galleryId}`);
-                const result = await api.searchByTitle(galleryInfo.title, galleryInfo.galleryId);
-                
-                if (result.error) {
-                    console.error(`Error checking gallery "${galleryInfo.title}"`);
-                    // API error - remove indicator
-                    galleryInfo.element.classList.remove('lanraragi-checking');
-                } else if (result.exists && result.exactMatch) {
-                    applyIndicator(galleryInfo.element, 'exists');
-                } else if (result.similar) {
-                    applyIndicator(galleryInfo.element, 'similar');
-                } else {
-                    applyIndicator(galleryInfo.element, 'not-found');
-                }
-                
-                galleryInfo.element.dataset.lanraragiChecked = 'true';
-            }));
+            // Find all gallery items on the page
+            const galleries = document.querySelectorAll('.gl1t, .id1');
+            console.log(`Found ${galleries.length} gallery elements on page`);
+            const uncheckedGalleries = [];
 
-            // Wait before next batch to avoid overloading
-            if (i + CONFIG.batchSize < uncheckedGalleries.length) {
-                await new Promise(resolve => setTimeout(resolve, CONFIG.checkInterval));
+            galleries.forEach((gallery, index) => {
+                console.log(`Processing gallery ${index + 1}/${galleries.length}`);
+                if (!gallery.dataset.lanraragiChecked) {
+                    const info = extractGalleryInfo(gallery);
+                    if (info) {
+                        uncheckedGalleries.push(info);
+                        applyIndicator(gallery, 'checking');
+                    }
+                }
+            });
+
+            console.log(`Found ${uncheckedGalleries.length} unchecked galleries to process`);
+            
+            // Process in batches
+            for (let i = 0; i < uncheckedGalleries.length; i += CONFIG.batchSize) {
+                const batch = uncheckedGalleries.slice(i, i + CONFIG.batchSize);
+                console.log(`Processing batch ${Math.floor(i/CONFIG.batchSize) + 1}, galleries ${i + 1}-${Math.min(i + CONFIG.batchSize, uncheckedGalleries.length)}`);
+                
+                await Promise.all(batch.map(async (galleryInfo) => {
+                    console.log(`Checking gallery: "${galleryInfo.title}" with ID: ${galleryInfo.galleryId}`);
+                    const result = await api.searchByTitle(galleryInfo.title, galleryInfo.galleryId);
+                    
+                    if (result.error) {
+                        console.error(`Error checking gallery "${galleryInfo.title}"`);
+                        // API error - remove indicator
+                        galleryInfo.element.classList.remove('lanraragi-checking');
+                    } else if (result.exists && result.exactMatch) {
+                        applyIndicator(galleryInfo.element, 'exists');
+                    } else if (result.similar) {
+                        applyIndicator(galleryInfo.element, 'similar', result.archives);
+                    } else {
+                        applyIndicator(galleryInfo.element, 'not-found');
+                    }
+                    
+                    galleryInfo.element.dataset.lanraragiChecked = 'true';
+                }));
+
+                // Wait before next batch to avoid overloading
+                if (i + CONFIG.batchSize < uncheckedGalleries.length) {
+                    await new Promise(resolve => setTimeout(resolve, CONFIG.checkInterval));
+                }
             }
+        } finally {
+            isChecking = false;
         }
     }
 
@@ -554,17 +614,14 @@
         }
 
         // Monitor for dynamically loaded content
+        let timeout;
         const observer = new MutationObserver(() => {
-            console.log('DOM mutation detected, checking for new galleries...');
-            if (CONFIG.enableIndicators) {
-                checkGalleries();
-            }
+            clearTimeout(timeout);
+            timeout = setTimeout(checkGalleries, 400);  // run at most once every 400 ms
         });
 
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
+        const container = document.querySelector('.itg');
+        if (container) observer.observe(container, {childList: true});
 
         // Debug mode
         if (CONFIG.debugMode) {

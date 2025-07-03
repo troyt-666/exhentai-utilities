@@ -10,8 +10,12 @@
 // @downloadURL  https://raw.githubusercontent.com/troyt-666/exhentai-utilities/main/userscripts/download-button.js
 // @match        https://exhentai.org/
 // @match        https://exhentai.org/?*
+// @match        https://exhentai.org/favorites.php*
+// @match        https://exhentai.org/tag/*
 // @match        https://e-hentai.org/
 // @match        https://e-hentai.org/?*
+// @match        https://e-hentai.org/favorites.php*
+// @match        https://e-hentai.org/tag/*
 // @connect      exhentai.org
 // @connect      e-hentai.org
 // @connect      hath.network
