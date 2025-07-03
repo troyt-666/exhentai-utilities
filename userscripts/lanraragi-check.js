@@ -378,7 +378,7 @@
         return match ? match[1] : null;
     }
 
-    function applyIndicator(element, status) {
+    function applyIndicator(element, status, archives = []) {
         console.log(`Applying indicator "${status}" to element:`, element);
         
         // Find the thumbnail container within the gallery element
@@ -417,6 +417,11 @@
                 thumbnailContainer.classList.add('lanraragi-similar-exists');
                 if (CONFIG.enableTooltips) {
                     thumbnailContainer.title = 'Similar title exists in library (gallery ID mismatch)';
+                    const titleElement = element.querySelector('.glink');
+                    if (titleElement && archives.length > 0) {
+                        const archiveTitles = archives.map(archive => archive.title).join('\n');
+                        titleElement.title = `Found similar:\n${archiveTitles}`;
+                    }
                 }
                 break;
             case 'not-found':
@@ -485,7 +490,7 @@
                     } else if (result.exists && result.exactMatch) {
                         applyIndicator(galleryInfo.element, 'exists');
                     } else if (result.similar) {
-                        applyIndicator(galleryInfo.element, 'similar');
+                        applyIndicator(galleryInfo.element, 'similar', result.archives);
                     } else {
                         applyIndicator(galleryInfo.element, 'not-found');
                     }
