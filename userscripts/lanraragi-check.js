@@ -301,6 +301,7 @@
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
                 ...options,
+                timeout: 15000, // 15-second timeout for API requests
                 onload: (response) => {
                     console.log('GM_xmlhttpRequest response received:', response.status);
                     resolve(response);
@@ -308,6 +309,10 @@
                 onerror: (error) => {
                     console.error('GM_xmlhttpRequest error:', error);
                     reject(error);
+                },
+                ontimeout: () => {
+                    console.error('GM_xmlhttpRequest timed out for URL:', options.url);
+                    reject(new Error('Request timed out'));
                 }
             });
         });
