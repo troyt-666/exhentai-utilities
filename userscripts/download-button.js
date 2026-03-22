@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         ExHentai Download Button with Batch Download Support
 // @namespace    https://github.com/troyt-666/exhentai-utilities
-// @version      1.3.0
-// @description  Adds download buttons (Original, Resample, H@H) to ExHentai/E-Hentai galleries with batch download support. Features progress tracking, error logging, and GP-aware downloading.
+// @version      1.4.0
+// @description  Adds download buttons (Original, Resample, H@H) to ExHentai/E-Hentai gallery listing and detail pages with batch download support. Features progress tracking, error logging, and GP-aware downloading.
 // @author       Troy T
 // @homepageURL  https://github.com/troyt-666/exhentai-utilities
 // @supportURL   https://github.com/troyt-666/exhentai-utilities/issues
@@ -12,10 +12,12 @@
 // @match        https://exhentai.org/?*
 // @match        https://exhentai.org/favorites.php*
 // @match        https://exhentai.org/tag/*
+// @match        https://exhentai.org/g/*
 // @match        https://e-hentai.org/
 // @match        https://e-hentai.org/?*
 // @match        https://e-hentai.org/favorites.php*
 // @match        https://e-hentai.org/tag/*
+// @match        https://e-hentai.org/g/*
 // @connect      exhentai.org
 // @connect      e-hentai.org
 // @connect      hath.network
@@ -113,6 +115,243 @@
                 document.body.removeChild(toast);
             }, 500); // Wait for the fade-out transition to complete
         }, 3000); // Display for 3 seconds
+    }
+
+    // Function to show a popup modal for gallery page downloads
+    function showDownloadPopup(title) {
+        // Remove existing popup if any
+        var existing = document.getElementById('dl-popup-overlay');
+        if (existing) existing.remove();
+
+        var overlay = document.createElement('div');
+        overlay.id = 'dl-popup-overlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+
+        var popup = document.createElement('div');
+        popup.id = 'dl-popup';
+        popup.style.cssText = 'background:#333;color:#fff;border-radius:10px;padding:20px;width:360px;box-shadow:0 0 20px rgba(0,0,0,0.8);text-align:center;';
+
+        var heading = document.createElement('h3');
+        heading.textContent = title;
+        heading.style.cssText = 'margin:0 0 15px 0;color:#4CAF50;';
+        popup.appendChild(heading);
+
+        var status = document.createElement('div');
+        status.id = 'dl-popup-status';
+        status.textContent = 'Initializing...';
+        status.style.cssText = 'margin-bottom:15px;font-size:13px;';
+        popup.appendChild(status);
+
+        var spinner = document.createElement('div');
+        spinner.id = 'dl-popup-spinner';
+        spinner.textContent = '⏳';
+        spinner.style.cssText = 'font-size:24px;margin-bottom:10px;';
+        popup.appendChild(spinner);
+
+        var closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Close';
+        closeBtn.style.cssText = 'padding:6px 20px;cursor:pointer;border:1px solid #555;background:#444;color:#fff;border-radius:4px;display:none;';
+        closeBtn.addEventListener('click', function() { overlay.remove(); });
+        closeBtn.id = 'dl-popup-close';
+        popup.appendChild(closeBtn);
+
+        overlay.appendChild(popup);
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay && closeBtn.style.display !== 'none') overlay.remove();
+        });
+        document.body.appendChild(overlay);
+
+        return {
+            setStatus: function(text) { status.textContent = text; },
+            setSuccess: function(text) {
+                spinner.textContent = '✅';
+                status.textContent = text;
+                heading.style.color = '#4CAF50';
+                closeBtn.style.display = 'inline-block';
+            },
+            setError: function(text) {
+                spinner.textContent = '❌';
+                status.textContent = text;
+                heading.style.color = '#ff6b6b';
+                closeBtn.style.display = 'inline-block';
+            }
+        };
+    }
+
+    // Add download buttons on gallery pages
+    function addGalleryPageButtons() {
+        var gd5 = document.getElementById('gd5');
+        if (!gd5) return;
+
+        // Find the Archive Download link
+        var archiveDownloadP = gd5.querySelector('a[onclick^="return popUp"]');
+        if (!archiveDownloadP) return;
+        var archiveP = archiveDownloadP.closest('p');
+        if (!archiveP) return;
+
+        // Extract the archiver URL from the existing Archive Download onclick
+        var onclickContent = archiveDownloadP.getAttribute('onclick');
+        var archiveUrlMatch = onclickContent.match(/popUp\('(.+?)'/);
+        if (!archiveUrlMatch || !archiveUrlMatch[1]) return;
+        var archiverUrl = archiveUrlMatch[1].replace(/&amp;/g, '&');
+
+        function createDownloadLink(text, downloadType) {
+            var a = document.createElement('a');
+            a.href = '#';
+            a.textContent = text;
+            a.addEventListener('click', function(e) {
+                e.preventDefault();
+                handleGalleryDownload(downloadType, archiverUrl);
+            });
+            return a;
+        }
+
+        // Append links inside the Archive Download <p>, separated by <br>
+        var links = [
+            createDownloadLink('Download Original', 'original'),
+            createDownloadLink('Download Resample', 'resample'),
+            createDownloadLink('Download H@H', 'hath')
+        ];
+        links.forEach(function(link) {
+            archiveP.appendChild(document.createElement('br'));
+            archiveP.appendChild(link);
+        });
+    }
+
+    // Handle download from gallery page with popup feedback
+    function handleGalleryDownload(archiveType, archiverUrl) {
+        var typeLabel = archiveType === 'original' ? 'Original' : archiveType === 'resample' ? 'Resample' : 'H@H';
+        var popup = showDownloadPopup(typeLabel + ' Download');
+
+        popup.setStatus('Fetching archiver page...');
+
+        GM_xmlhttpRequest({
+            method: 'GET',
+            url: archiverUrl,
+            onload: function(archivePageResponse) {
+                if (archivePageResponse.status !== 200) {
+                    popup.setError('Failed to fetch archiver page (HTTP ' + archivePageResponse.status + ')');
+                    return;
+                }
+
+                var parser = new DOMParser();
+                var archiveDoc = parser.parseFromString(archivePageResponse.responseText, 'text/html');
+
+                if (archiveType === 'hath') {
+                    popup.setStatus('Submitting H@H download request...');
+                    var formElement = archiveDoc.querySelector('#hathdl_form');
+                    if (!formElement) {
+                        popup.setError('H@H form not found on archiver page.');
+                        return;
+                    }
+                    var formAction = formElement.getAttribute('action');
+                    var formData = new FormData(formElement);
+                    formData.set('hathdl_xres', 'org');
+
+                    GM_xmlhttpRequest({
+                        method: 'POST',
+                        url: formAction,
+                        data: new URLSearchParams(formData),
+                        onload: function(formSubmitResponse) {
+                            var successMessage = "An original resolution download has been queued for client";
+                            if (formSubmitResponse.responseText.includes(successMessage)) {
+                                popup.setSuccess('H@H download successfully queued!');
+                            } else {
+                                var errorDoc = parser.parseFromString(formSubmitResponse.responseText, 'text/html');
+                                var errorElement = errorDoc.querySelector('.stuffbox') || errorDoc.querySelector('p');
+                                var errorText = errorElement ? errorElement.textContent.trim() : 'Unknown error';
+                                popup.setError('H@H queue failed: ' + errorText);
+                            }
+                        },
+                        onerror: function() {
+                            popup.setError('Network error submitting H@H form.');
+                        }
+                    });
+                    return;
+                }
+
+                // Original or Resample archive download
+                popup.setStatus('Submitting ' + typeLabel + ' archive request...');
+                var formElement = archiveDoc.querySelector('form[action*="archiver.php"]');
+                if (!formElement) {
+                    popup.setError('Archive form not found.');
+                    return;
+                }
+                var formAction = formElement.getAttribute('action');
+                var dltypeValue = archiveType === 'original' ? 'org' : 'res';
+
+                GM_xmlhttpRequest({
+                    method: 'POST',
+                    url: formAction,
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    data: 'dltype=' + dltypeValue + '&dlcheck=Download+' + (archiveType === 'original' ? 'Original' : 'Resample') + '+Archive',
+                    onload: function(formSubmitResponse) {
+                        var formSubmitDoc = parser.parseFromString(formSubmitResponse.responseText, 'text/html');
+
+                        var continueLink = formSubmitDoc.querySelector('#continue a');
+                        var redirectLink = null;
+                        if (continueLink) {
+                            redirectLink = continueLink.getAttribute('href');
+                        } else {
+                            var scriptEl = formSubmitDoc.querySelector('script');
+                            if (scriptEl) {
+                                var match = scriptEl.textContent.match(/document\.location\s*=\s*"(.+?)"/);
+                                if (match) redirectLink = match[1];
+                            }
+                        }
+
+                        if (!redirectLink) {
+                            popup.setError('Could not extract download URL.');
+                            return;
+                        }
+
+                        popup.setStatus('Preparing archive, waiting for download link...');
+
+                        // Poll for the final download link
+                        var pollCount = 0;
+                        var maxPolls = 30;
+                        function checkForDownloadLink() {
+                            pollCount++;
+                            GM_xmlhttpRequest({
+                                method: 'GET',
+                                url: redirectLink,
+                                onload: function(downloadPageResponse) {
+                                    var downloadDoc = parser.parseFromString(downloadPageResponse.responseText, 'text/html');
+                                    var hasLink = downloadDoc.querySelector('a[href^="/archive/"]') ||
+                                                  downloadDoc.body.innerHTML.includes("Click Here To Start Downloading");
+
+                                    if (hasLink) {
+                                        var finalUrl = redirectLink + "?start=1";
+                                        popup.setSuccess(typeLabel + ' archive ready! Starting download...');
+                                        var a = document.createElement('a');
+                                        a.href = finalUrl;
+                                        a.style.display = 'none';
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        document.body.removeChild(a);
+                                    } else if (pollCount < maxPolls) {
+                                        popup.setStatus('Preparing archive... (attempt ' + pollCount + '/' + maxPolls + ')');
+                                        setTimeout(checkForDownloadLink, 2000);
+                                    } else {
+                                        popup.setError('Timed out waiting for archive to be ready.');
+                                    }
+                                },
+                                onerror: function() {
+                                    popup.setError('Network error while checking download status.');
+                                }
+                            });
+                        }
+                        checkForDownloadLink();
+                    },
+                    onerror: function() {
+                        popup.setError('Network error submitting archive form.');
+                    }
+                });
+            },
+            onerror: function() {
+                popup.setError('Network error fetching archiver page.');
+            }
+        });
     }
 
     // Function to show batch download progress
@@ -410,6 +649,16 @@
         }
     }
 
+    // Detect if we're on a gallery page (e.g., /g/12345/token/)
+    var isGalleryPage = /\/g\/\d+\//.test(window.location.pathname);
+
+    if (isGalleryPage) {
+        addGalleryPageButtons();
+        return; // Don't run listing page code
+    }
+
+    // === Listing page code below ===
+
     // Create the batch download panel
     createBatchDownloadPanel();
 
@@ -688,8 +937,8 @@
                 }
                 currentCount++;
                 
-                // Wait 800ms before processing next download to avoid rate limiting
-                setTimeout(processNextDownload, 800);
+                // Wait 300ms before processing next download to avoid rate limiting
+                setTimeout(processNextDownload, 300);
             });
         }
 
