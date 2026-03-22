@@ -12,10 +12,12 @@
 // @match        https://exhentai.org/?*
 // @match        https://exhentai.org/tag/*
 // @match        https://exhentai.org/favorites.php*
+// @match        https://exhentai.org/g/*
 // @match        https://e-hentai.org/
 // @match        https://e-hentai.org/?*
 // @match        https://e-hentai.org/tag/*
 // @match        https://e-hentai.org/favorites.php*
+// @match        https://e-hentai.org/g/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -99,6 +101,22 @@
             opacity: 0.7;
             border: 3px dashed #2196F3 !important;
             box-sizing: border-box !important;
+        }
+        #gd1.lanraragi-in-library {
+            border: 3px solid #4CAF50 !important;
+            box-shadow: 0 0 8px #4CAF50;
+        }
+        #gd1.lanraragi-not-in-library {
+            border: 3px solid #F44336 !important;
+            box-shadow: 0 0 8px #F44336;
+        }
+        #gd1.lanraragi-similar-exists {
+            border: 3px solid #FF9800 !important;
+            box-shadow: 0 0 8px #FF9800;
+        }
+        #gd1.lanraragi-checking {
+            opacity: 0.7;
+            border: 3px dashed #2196F3 !important;
         }
         .lanraragi-tooltip {
             position: absolute;
@@ -512,6 +530,61 @@
         }
     }
 
+    // Gallery page check - checks the single gallery on a /g/ page
+    async function checkGalleryPage() {
+        const coverElement = document.getElementById('gd1');
+        if (!coverElement) return;
+
+        // Get the Japanese title first (preferred for LANraragi search), fall back to English
+        const jpTitle = document.getElementById('gj');
+        const enTitle = document.getElementById('gn');
+        const title = (jpTitle && jpTitle.textContent.trim()) || (enTitle && enTitle.textContent.trim());
+        if (!title) return;
+
+        const galleryId = extractGalleryId(window.location.href);
+        console.log(`Gallery page: checking "${title}" (ID: ${galleryId})`);
+
+        applyGalleryPageIndicator(coverElement, 'checking');
+
+        const result = await api.searchByTitle(title, galleryId);
+
+        if (result.error) {
+            coverElement.classList.remove('lanraragi-checking');
+        } else if (result.exists && result.exactMatch) {
+            applyGalleryPageIndicator(coverElement, 'exists');
+        } else if (result.similar) {
+            applyGalleryPageIndicator(coverElement, 'similar');
+        } else {
+            applyGalleryPageIndicator(coverElement, 'not-found');
+        }
+    }
+
+    function applyGalleryPageIndicator(element, status) {
+        const classesToRemove = ['lanraragi-in-library', 'lanraragi-not-in-library',
+                                'lanraragi-similar-exists', 'lanraragi-checking'];
+        element.classList.remove(...classesToRemove);
+
+        switch (status) {
+            case 'exists':
+                element.classList.add('lanraragi-in-library');
+                element.title = 'Already in LANraragi library';
+                break;
+            case 'similar':
+                element.classList.add('lanraragi-similar-exists');
+                element.title = 'Similar title exists in library (gallery ID mismatch)';
+                break;
+            case 'not-found':
+                if (CONFIG.highlightNotInLibrary) {
+                    element.classList.add('lanraragi-not-in-library');
+                    element.title = 'Not in LANraragi library';
+                }
+                break;
+            case 'checking':
+                element.classList.add('lanraragi-checking');
+                break;
+        }
+    }
+
     // Configuration panel
     function createConfigPanel() {
         const panel = document.createElement('div');
@@ -611,22 +684,29 @@
         createConfigPanel();
 
         // Initial check - works with or without API key
+        const isGalleryPage = /\/g\/\d+\//.test(window.location.pathname);
+
         if (CONFIG.enableIndicators) {
-            console.log('Indicators enabled, starting initial gallery check...');
-            checkGalleries();
+            if (isGalleryPage) {
+                console.log('Gallery page detected, checking cover...');
+                checkGalleryPage();
+            } else {
+                console.log('Indicators enabled, starting initial gallery check...');
+                checkGalleries();
+
+                // Monitor for dynamically loaded content (list pages only)
+                let timeout;
+                const observer = new MutationObserver(() => {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(checkGalleries, 400);
+                });
+
+                const container = document.querySelector('.itg');
+                if (container) observer.observe(container, {childList: true});
+            }
         } else {
             console.log('Indicators disabled, skipping gallery check');
         }
-
-        // Monitor for dynamically loaded content
-        let timeout;
-        const observer = new MutationObserver(() => {
-            clearTimeout(timeout);
-            timeout = setTimeout(checkGalleries, 400);  // run at most once every 400 ms
-        });
-
-        const container = document.querySelector('.itg');
-        if (container) observer.observe(container, {childList: true});
 
         // Debug mode
         if (CONFIG.debugMode) {
