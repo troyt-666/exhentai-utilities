@@ -71,6 +71,7 @@
         checkInterval: 1000, // Milliseconds between batch checks
         batchSize: 10, // Number of galleries to check at once
         cacheExpiry: 3600000, // 1 hour in milliseconds
+        similarityThreshold: 0.3, // Minimum title similarity to consider a match (0-1)
         enableIndicators: true,
         enableTooltips: true,
         highlightNotInLibrary: GM_getValue('highlight_not_in_library', false), // Toggle for red highlighting
@@ -233,62 +234,89 @@
             }
 
             try {
-                // Build headers - only add Authorization if API key exists
                 const headers = {};
                 if (CONFIG.apiKey) {
                     headers['Authorization'] = `Bearer ${CONFIG.apiKey}`;
                 }
 
-                const searchUrl = `${CONFIG.lanraragiUrl}/api/search?filter=${encodeURIComponent(title)}`;
-                console.log(`Making API request to: ${searchUrl}`);
-                console.log(`Request headers:`, headers);
-                
+                // Use core title for more precise search results
+                const searchTitle = extractSearchTitle(title);
+                const searchUrl = `${CONFIG.lanraragiUrl}/api/search?filter=${encodeURIComponent(searchTitle)}`;
+                console.log(`Making API request to: ${searchUrl} (core title: "${searchTitle}")`);
+
                 const response = await gmFetch({
                     method: 'GET',
                     url: searchUrl,
                     headers: headers
                 });
-                
+
                 console.log(`API response status: ${response.status}`);
-                console.log(`API response text:`, response.responseText);
 
                 const data = JSON.parse(response.responseText);
-                console.log(`Parsed API response:`, data);
                 console.log(`Archives found: ${data.data ? data.data.length : 0}`);
-                
+
                 const result = {
                     exists: false,
                     similar: false,
                     exactMatch: false,
-                    archives: data.data || []
+                    archives: []
                 };
 
-                // Check for matches
                 if (data.data && data.data.length > 0) {
-                    // If we have a gallery ID, check for exact ID matches first
+                    // Gallery ID match is the most reliable indicator
                     if (galleryId) {
                         const exactIdMatch = data.data.find(archive => {
                             const archiveId = extractGalleryIdFromFilename(archive.filename);
                             return archiveId === galleryId;
                         });
-                        
+
                         if (exactIdMatch) {
                             console.log(`Found exact gallery ID match: ${galleryId}`);
                             result.exists = true;
                             result.exactMatch = true;
-                        } else {
-                            console.log(`Found title match but no gallery ID match for: ${galleryId}`);
+                            result.archives = [exactIdMatch];
+                            cache.set(cacheKey, result);
+                            return result;
+                        }
+                    }
+
+                    // Filter results by title similarity to discard unrelated matches
+                    const similarArchives = data.data.filter(archive => {
+                        const sim = titleSimilarity(title, archive.title);
+                        archive._similarity = sim;
+                        if (CONFIG.debugMode) {
+                            console.log(`  Similarity "${archive.title}": ${sim.toFixed(3)}`);
+                        }
+                        return sim >= CONFIG.similarityThreshold;
+                    });
+
+                    if (similarArchives.length > 0) {
+                        similarArchives.sort((a, b) => (b._similarity || 0) - (a._similarity || 0));
+                        result.archives = similarArchives;
+
+                        if (galleryId) {
+                            // Had gallery ID but no ID match — title-similar only
                             result.similar = true;
+                            console.log(`Title-similar archives found (no ID match) for: ${title}`);
+                        } else {
+                            // No gallery ID — use similarity score to decide
+                            if (similarArchives[0]._similarity >= 0.5) {
+                                result.exists = true;
+                                result.exactMatch = true;
+                            } else {
+                                result.similar = true;
+                            }
                         }
                     } else {
-                        // No gallery ID available, treat as exact match
-                        result.exists = true;
-                        result.exactMatch = true;
+                        console.log(`All ${data.data.length} results filtered out by similarity for: ${title}`);
                     }
-                } else {
-                    // Check for similar titles if no match found
-                    if (title.length > 10) {
-                        const simplified = simplifyTitle(title);
+                }
+
+                // Fallback: broader search with simplified title
+                if (!result.exists && !result.similar && title.length > 10) {
+                    const simplified = simplifyTitle(title);
+                    if (simplified !== searchTitle && simplified.length >= 2) {
+                        console.log(`Trying simplified title: "${simplified}"`);
                         const similarResponse = await gmFetch({
                             method: 'GET',
                             url: `${CONFIG.lanraragiUrl}/api/search?filter=${encodeURIComponent(simplified)}`,
@@ -296,8 +324,16 @@
                         });
                         const similarData = JSON.parse(similarResponse.responseText);
                         if (similarData.data && similarData.data.length > 0) {
-                            result.similar = true;
-                            result.archives = similarData.data;
+                            const filteredSimilar = similarData.data.filter(archive => {
+                                const sim = titleSimilarity(title, archive.title);
+                                archive._similarity = sim;
+                                return sim >= CONFIG.similarityThreshold;
+                            });
+                            if (filteredSimilar.length > 0) {
+                                filteredSimilar.sort((a, b) => (b._similarity || 0) - (a._similarity || 0));
+                                result.similar = true;
+                                result.archives = filteredSimilar;
+                            }
                         }
                     }
                 }
@@ -344,6 +380,67 @@
             .replace(/【.*?】/g, '') // Remove Japanese brackets
             .replace(/\s+/g, ' ') // Normalize spaces
             .trim();
+    }
+
+    // Extract core title for search queries by stripping metadata brackets.
+    // ExHentai format: (event) [circle (author)] Title (series) [language] [misc]
+    function extractSearchTitle(fullTitle) {
+        let s = fullTitle;
+        // Strip leading (event) tag, e.g., (C81), (COMIC1☆2)
+        s = s.replace(/^\s*\([^)]*\)\s*/, '');
+        // Strip leading [circle/author] tag, e.g., [ciaociao (あらきかなお)]
+        s = s.replace(/^\s*\[[^\]]*\]\s*/, '');
+        // Strip all trailing [bracket] groups, e.g., [中国翻訳], [Digital], [AI Generated]
+        while (/\[[^\]]*\]\s*$/.test(s)) {
+            s = s.replace(/\s*\[[^\]]*\]\s*$/, '');
+        }
+        s = s.trim();
+        // Fallback if nothing meaningful left
+        if (s.length < 2) {
+            s = fullTitle.replace(/[\[\(][^\]\)]*[\]\)]/g, '').replace(/\s+/g, ' ').trim();
+        }
+        return s || fullTitle;
+    }
+
+    // Compute title similarity using token-based Jaccard index.
+    // Latin words are compared as whole tokens; CJK text is compared as bigrams
+    // for fuzzy matching across minor variations.
+    function titleSimilarity(a, b) {
+        const normalize = t => t.toLowerCase()
+            .replace(/[^\w\u3000-\u9fff\uac00-\ud7af\uff00-\uffef]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const na = normalize(a);
+        const nb = normalize(b);
+        if (!na || !nb) return 0;
+
+        const tokenize = t => {
+            const tokens = new Set();
+            // Latin/numeric words (2+ chars)
+            const words = t.match(/[a-z0-9]{2,}/g);
+            if (words) words.forEach(w => tokens.add(w));
+            // CJK: overlapping bigrams for fuzzy matching
+            const cjk = t.match(/[\u3000-\u9fff\uac00-\ud7af\uff00-\uffef]+/g);
+            if (cjk) {
+                cjk.forEach(seq => {
+                    for (let i = 0; i < seq.length - 1; i++) {
+                        tokens.add(seq.substring(i, i + 2));
+                    }
+                    if (seq.length === 1) tokens.add(seq);
+                });
+            }
+            return tokens;
+        };
+
+        const tokensA = tokenize(na);
+        const tokensB = tokenize(nb);
+        if (tokensA.size === 0 || tokensB.size === 0) return 0;
+
+        let shared = 0;
+        tokensA.forEach(t => { if (tokensB.has(t)) shared++; });
+        const union = new Set([...tokensA, ...tokensB]).size;
+        return union > 0 ? shared / union : 0;
     }
 
     function extractGalleryInfo(element) {
