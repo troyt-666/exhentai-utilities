@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ExHentai Download Button with Batch Download Support
 // @namespace    https://github.com/troyt-666/exhentai-utilities
-// @version      1.4.0
+// @version      1.4.1
 // @description  Adds download buttons (Original, Resample, H@H) to ExHentai/E-Hentai gallery listing and detail pages with batch download support. Features progress tracking, error logging, and GP-aware downloading.
 // @author       Troy T
 // @homepageURL  https://github.com/troyt-666/exhentai-utilities
@@ -12,11 +12,13 @@
 // @match        https://exhentai.org/?*
 // @match        https://exhentai.org/favorites.php*
 // @match        https://exhentai.org/tag/*
+// @match        https://exhentai.org/uploader/*
 // @match        https://exhentai.org/g/*
 // @match        https://e-hentai.org/
 // @match        https://e-hentai.org/?*
 // @match        https://e-hentai.org/favorites.php*
 // @match        https://e-hentai.org/tag/*
+// @match        https://e-hentai.org/uploader/*
 // @match        https://e-hentai.org/g/*
 // @connect      exhentai.org
 // @connect      e-hentai.org
