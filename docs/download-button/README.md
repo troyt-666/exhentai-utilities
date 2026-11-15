@@ -4,6 +4,9 @@
 
 A powerful userscript that enhances ExHentai/E-Hentai gallery pages by adding convenient download buttons and batch download functionality.
 
+![Version](https://img.shields.io/badge/version-1.4.2-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+
 ## Features
 
 ### Individual Downloads

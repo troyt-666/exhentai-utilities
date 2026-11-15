@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LANraragi Library Checker for ExHentai
 // @namespace    https://github.com/troyt-666/exhentai-utilities
-// @version      0.1.1
+// @version      0.1.2
 // @description  Check if ExHentai/E-Hentai galleries exist in your LANraragi library. Shows visual indicators on gallery thumbnails.
 // @author       Troy T
 // @homepageURL  https://github.com/troyt-666/exhentai-utilities
@@ -648,15 +648,15 @@
         if (result.error) {
             coverElement.classList.remove('lanraragi-checking');
         } else if (result.exists && result.exactMatch) {
-            applyGalleryPageIndicator(coverElement, 'exists');
+            applyGalleryPageIndicator(coverElement, 'exists', result.archives);
         } else if (result.similar) {
-            applyGalleryPageIndicator(coverElement, 'similar');
+            applyGalleryPageIndicator(coverElement, 'similar', result.archives);
         } else {
             applyGalleryPageIndicator(coverElement, 'not-found');
         }
     }
 
-    function applyGalleryPageIndicator(element, status) {
+    function applyGalleryPageIndicator(element, status, archives = []) {
         const classesToRemove = ['lanraragi-in-library', 'lanraragi-not-in-library',
                                 'lanraragi-similar-exists', 'lanraragi-checking'];
         element.classList.remove(...classesToRemove);
@@ -679,6 +679,18 @@
             case 'checking':
                 element.classList.add('lanraragi-checking');
                 break;
+        }
+
+        if (CONFIG.enableTooltips && (status === 'exists' || status === 'similar')) {
+            const archiveTitles = archives.map(archive => archive.title).filter(Boolean).join('\n');
+            if (archiveTitles) {
+                const matchLabel = status === 'similar' ? 'Found similar:' : 'Found in library:';
+                const matchTooltip = `${matchLabel}\n${archiveTitles}`;
+                element.title += `\n\n${matchTooltip}`;
+                document.querySelectorAll('#gn, #gj').forEach(titleElement => {
+                    titleElement.title = matchTooltip;
+                });
+            }
         }
     }
 

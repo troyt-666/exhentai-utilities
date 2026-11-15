@@ -2,7 +2,7 @@
 
 A userscript that integrates ExHentai/E-Hentai with your LANraragi instance, showing visual indicators for galleries that are already in your local library.
 
-![Version](https://img.shields.io/badge/version-0.1.1-blue.svg)
+![Version](https://img.shields.io/badge/version-0.1.2-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## Features
@@ -32,6 +32,8 @@ A userscript that integrates ExHentai/E-Hentai with your LANraragi instance, sho
 | 🟡 **Yellow Border** | Similar gallery found (fuzzy title match but different ID) |
 | 🔴 **Red Border** | Gallery not in library (optional, configurable) |
 | 🔵 **Blue Dashed** | Currently checking... |
+
+On gallery pages, hover over the cover or either gallery title to see the matching titles from your LANraragi library, for both exact and similar matches.
 
 ## Configuration
 

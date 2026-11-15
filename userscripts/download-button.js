@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ExHentai Download Button with Batch Download Support
 // @namespace    https://github.com/troyt-666/exhentai-utilities
-// @version      1.4.1
+// @version      1.4.2
 // @description  Adds download buttons (Original, Resample, H@H) to ExHentai/E-Hentai gallery listing and detail pages with batch download support. Features progress tracking, error logging, and GP-aware downloading.
 // @author       Troy T
 // @homepageURL  https://github.com/troyt-666/exhentai-utilities
@@ -59,6 +59,17 @@
 
 (function() {
     'use strict';
+
+    // Extract readable server feedback without logging a whole HTML page or form tokens.
+    function getResponseMessage(responseText) {
+        var doc = new DOMParser().parseFromString(responseText || '', 'text/html');
+        doc.querySelectorAll('script, style, form, h1').forEach(function(element) {
+            element.remove();
+        });
+        var element = doc.querySelector('.stuffbox') || doc.querySelector('#db') || doc.body;
+        var text = element ? element.textContent.replace(/\s+/g, ' ').trim() : '';
+        return text ? text.slice(0, 1000) : 'The server returned an empty response.';
+    }
 
     // Function to show a toast notification with a shrinking progress bar
     function showToast(message) {
@@ -739,10 +750,20 @@
 
         // Helper function to handle downloads (Original, Resample, or H@H)
         function handleDownloadButton(archiveType) {
-            console.log("Fetching gallery page: " + galleryLink); // Log the gallery link being accessed
             if (archiveType === 'hath') {
-                showToast("Fetching gallery page...");
+                var popup = showDownloadPopup('H@H Download');
+                popup.setStatus('Fetching gallery and submitting H@H download request...');
+                processGalleryHaHDownload(galleryLink, galleryTitle, function(success, errorMessage) {
+                    if (success) {
+                        popup.setSuccess('H@H download successfully queued!');
+                    } else {
+                        popup.setError(errorMessage);
+                        logError(galleryTitle, galleryLink, errorMessage);
+                    }
+                });
+                return;
             }
+            console.log("Fetching gallery page: " + galleryLink); // Log the gallery link being accessed
 
             // Step 1: Fetch the gallery page to find the archive download link
             GM_xmlhttpRequest({
@@ -757,9 +778,6 @@
                     
                     if (archiveDownloadAnchor) {
                         console.log("Found archiveDownloadAnchor:", archiveDownloadAnchor); // Log the anchor element
-                        if (archiveType === 'hath') {
-                            showToast("Found archive download link!");
-                        }
 
                         // Extract the URL from the onclick attribute (popUp() call)
                         var onclickContent = archiveDownloadAnchor.getAttribute('onclick');
@@ -768,9 +786,6 @@
                         if (archiveUrlMatch && archiveUrlMatch[1]) {
                             var archiveUrl = archiveUrlMatch[1];
                             console.log("Extracted archive URL:", archiveUrl); // Log the extracted URL
-                            if (archiveType === 'hath') {
-                                showToast("Extracted archive URL successfully!");
-                            }
 
                             // Step 2: Fetch the page where the form exists
                             GM_xmlhttpRequest({
@@ -778,38 +793,6 @@
                                 url: archiveUrl,
                                 onload: function(archivePageResponse) {
                                     var archiveDoc = parser.parseFromString(archivePageResponse.responseText, 'text/html');
-
-                                    // Check if we are handling the H@H download
-                                    if (archiveType === 'hath') {
-                                        // Handle H@H download by submitting the form for H@H server
-                                        var formElement = archiveDoc.querySelector('#hathdl_form');
-                                        if (formElement) {
-                                            var formAction = formElement.getAttribute('action');
-                                            var formData = new FormData(formElement);
-                                            formData.set('hathdl_xres', 'org'); // Set to 'Original'
-
-                                            // Submit the form for remote server download
-                                            GM_xmlhttpRequest({
-                                                method: 'POST',
-                                                url: formAction,
-                                                data: new URLSearchParams(formData), // Simulate the form submission
-                                                onload: function(formSubmitResponse) {
-                                                    var successMessage = "An original resolution download has been queued for client";
-                                                    if (formSubmitResponse.responseText.includes(successMessage)) {
-                                                        showToast("H@H download successfully queued!");
-                                                        console.log("H@H download successfully queued.");
-                                                    } else {
-                                                        showToast("Failed to queue H@H download.");
-                                                        console.log("Failed to queue H@H download.");
-                                                    }
-                                                }
-                                            });
-                                        } else {
-                                            showToast('H@H form not found!');
-                                            console.log("Form element for H@H download not found.");
-                                        }
-                                        return;
-                                    }
 
                                     // For original or resample downloads
                                     var formElement = archiveDoc.querySelector('form[action*="archiver.php"]');
@@ -950,6 +933,16 @@
 
     // Function to process H@H download for a single gallery
     function processGalleryHaHDownload(galleryLink, galleryTitle, callback) {
+        var originalCallback = callback;
+        var completed = false;
+        callback = function(success, errorMessage) {
+            if (completed) return;
+            completed = true;
+            if (!success) {
+                console.error('[H@H] ' + errorMessage, { gallery: galleryLink, title: galleryTitle });
+            }
+            originalCallback(success, errorMessage);
+        };
         console.log("[TRACE] Batch processing gallery: " + galleryLink);
         console.log("[TRACE] Gallery title: " + galleryTitle);
         console.log("[TRACE] Fetching gallery page: " + galleryLink);
@@ -957,10 +950,12 @@
         GM_xmlhttpRequest({
             method: 'GET',
             url: galleryLink,
+            timeout: 30000,
+            ontimeout: function() { callback(false, 'Timed out fetching gallery page (30s).'); },
             onload: function(response) {
                 if (response.status !== 200) {
                     console.log("[TRACE] Failed to fetch gallery page, HTTP status: " + response.status);
-                    callback(false, `Failed to fetch gallery page (HTTP ${response.status})`);
+                    callback(false, `Failed to fetch gallery page (HTTP ${response.status}): ${getResponseMessage(response.responseText)}`);
                     return;
                 }
 
@@ -986,10 +981,12 @@
                         GM_xmlhttpRequest({
                             method: 'GET',
                             url: archiveUrl,
+                            timeout: 30000,
+                            ontimeout: function() { callback(false, 'Timed out fetching archiver page (30s).'); },
                             onload: function(archivePageResponse) {
                                 if (archivePageResponse.status !== 200) {
                                     console.log("[TRACE] Failed to fetch archive page, HTTP status: " + archivePageResponse.status);
-                                    callback(false, `Failed to fetch archive page (HTTP ${archivePageResponse.status})`);
+                                    callback(false, `Failed to fetch archive page (HTTP ${archivePageResponse.status}): ${getResponseMessage(archivePageResponse.responseText)}`);
                                     return;
                                 }
 
@@ -999,7 +996,7 @@
                                 var formElement = archiveDoc.querySelector('#hathdl_form');
                                 if (formElement) {
                                     console.log("[TRACE] Found H@H form element");
-                                    var formAction = formElement.getAttribute('action');
+                                    var formAction = new URL(formElement.getAttribute('action') || '', archivePageResponse.finalUrl || archiveUrl).href;
                                     console.log("[TRACE] Form action URL: " + formAction);
                                     var formData = new FormData(formElement);
                                     formData.set('hathdl_xres', 'org');
@@ -1009,11 +1006,14 @@
                                     GM_xmlhttpRequest({
                                         method: 'POST',
                                         url: formAction,
-                                        data: new URLSearchParams(formData),
+                                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                        data: new URLSearchParams(formData).toString(),
+                                        timeout: 30000,
+                                        ontimeout: function() { callback(false, 'Timed out submitting H@H form (30s). Check the queue before retrying.'); },
                                         onload: function(formSubmitResponse) {
                                             if (formSubmitResponse.status !== 200) {
                                                 console.log("[TRACE] Failed to submit H@H form, HTTP status: " + formSubmitResponse.status);
-                                                callback(false, `Failed to submit H@H form (HTTP ${formSubmitResponse.status})`);
+                                                callback(false, `Failed to submit H@H form (HTTP ${formSubmitResponse.status}): ${getResponseMessage(formSubmitResponse.responseText)}`);
                                                 return;
                                             }
 
@@ -1026,13 +1026,9 @@
                                                 callback(true);
                                             } else {
                                                 console.log("[TRACE] H@H queue failed - success message not found in response");
-                                                console.log("[TRACE] Response text: " + formSubmitResponse.responseText.substring(0, 500) + "...");
-                                                // Try to extract error message from response
-                                                var errorDoc = parser.parseFromString(formSubmitResponse.responseText, 'text/html');
-                                                var errorElement = errorDoc.querySelector('.stuffbox') || errorDoc.querySelector('p');
-                                                var errorText = errorElement ? errorElement.textContent.trim() : 'Unknown error occurred';
+                                                var errorText = getResponseMessage(formSubmitResponse.responseText);
                                                 console.log("[TRACE] Extracted error text: " + errorText);
-                                                callback(false, `H@H queue failed: ${errorText}`);
+                                                callback(false, `H@H queue failed (HTTP ${formSubmitResponse.status}): ${errorText}`);
                                             }
                                         },
                                         onerror: function(error) {
@@ -1042,8 +1038,7 @@
                                     });
                                 } else {
                                     console.log("[TRACE] H@H form element not found on archive page");
-                                    console.log("[TRACE] Archive page HTML: " + archivePageResponse.responseText.substring(0, 1000) + "...");
-                                    callback(false, 'H@H form not found on archive page');
+                                    callback(false, 'H@H form not found on archive page: ' + getResponseMessage(archivePageResponse.responseText));
                                 }
                             },
                             onerror: function(error) {
@@ -1058,8 +1053,7 @@
                     }
                 } else {
                     console.log("[TRACE] Archive download link not found on gallery page");
-                    console.log("[TRACE] Gallery page HTML: " + response.responseText.substring(0, 1000) + "...");
-                    callback(false, 'Archive download link not found on gallery page');
+                    callback(false, 'Archive download link not found on gallery page: ' + getResponseMessage(response.responseText));
                 }
             },
             onerror: function(error) {

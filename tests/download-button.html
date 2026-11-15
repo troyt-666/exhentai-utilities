@@ -1,0 +1,94 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Download button regression tests</title>
+<style>body{font:16px system-ui;max-width:960px;margin:40px auto;background:#20242c;color:#eee}li{margin:12px 0}iframe{width:100%;height:340px;border:1px solid #555}</style>
+<h1>Download button regression tests</h1>
+<p>Real browser DOM, mocked GM requests. No requests are sent to E-Hentai.</p>
+<ol id="results"></ol>
+<div id="preview"></div>
+<script>
+const versionError = 'You must update your H@H client to 1.6.6 or newer to use this feature.';
+const gallery = `<a onclick="return popUp('https://exhentai.org/archiver.php?gid=123&token=test')">Archive Download</a>`;
+const form = '<form id="hathdl_form" action="/archiver.php?gid=123&token=test"><input name="hathdl_xres" value="1280"><input name="client" value="test-client"></form>';
+const response = (html, status = 200) => ({status, responseText:html});
+const cases = [
+  {name:'HTTP 200 rejection shows server reason, status, context and retained error log', replies:[response(gallery),response(form),response('<h1>Gallery title</h1><p>'+versionError+'</p>')], expected:versionError},
+  {name:'HTTP 503 includes upstream explanation', replies:[response(gallery),response(form),response('<p>Service temporarily unavailable</p>',503)], expected:'HTTP 503'},
+  {name:'Missing H@H form includes login explanation', replies:[response(gallery),response('<div class="stuffbox">Please log in to continue.</div>')], expected:'Please log in'},
+  {name:'Gallery HTTP failure includes response body', replies:[response('<p>Too many requests</p>',429)], expected:'HTTP 429'},
+  {name:'Network error is visible and logged', replies:['network'], expected:'Network error fetching gallery page'},
+  {name:'POST timeout warns against duplicate retry', replies:[response(gallery),response(form),'timeout'], expected:'Check the queue before retrying'},
+  {name:'Empty rejection has a useful fallback', replies:[response(gallery),response(form),response('')], expected:'empty response'},
+  {name:'Successful queue uses encoded POST and preserves original resolution', replies:[response(gallery),response(form),response('<p>An original resolution download has been queued for client Test.</p>')], success:true, expected:'successfully queued'},
+  {name:'Plain text and HTML entities are readable; scripts and hidden forms excluded', replies:[response(gallery),response(form),response('<h1>Gallery</h1><script>secret script<\/script><form><input value="secret-token"></form><div>Client &amp; server unavailable</div>')], expected:'Client & server unavailable'}
+];
+function assert(value, message) { if (!value) throw new Error(message); }
+async function run(test, keep) {
+  const frame = document.createElement('iframe');
+  document.querySelector('#preview').append(frame);
+  const loaded = new Promise(resolve => frame.onload = resolve);
+  frame.srcdoc = '<div class="gl1t"><a href="https://exhentai.org/g/123/test/"><span class="gl4t glname glink">Test gallery</span></a></div>';
+  await loaded;
+  const w = frame.contentWindow, errors = [], requests = [];
+  w.console = {log(){},error(...args){errors.push(args);}};
+  w.GM_getValue = (_key, fallback) => fallback;
+  w.GM_setValue = () => {};
+  w.GM_addStyle = () => {};
+  w.GM_xmlhttpRequest = options => {
+    requests.push(options);
+    const reply = test.replies[requests.length - 1];
+    queueMicrotask(() => {
+      if (reply === 'network') options.onerror({error:'Offline'});
+      else if (reply === 'timeout') options.ontimeout();
+      else options.onload(reply);
+    });
+  };
+  const script = w.document.createElement('script');
+  const ready = new Promise((resolve,reject) => {script.onload=resolve;script.onerror=reject;});
+  script.src = new URL('../userscripts/download-button.js', location.href).href;
+  w.document.body.append(script);
+  await ready;
+  const finished = new Promise((resolve,reject) => {
+    const timer = setTimeout(() => reject(new Error('Download did not finish')),2000);
+    const observer = new w.MutationObserver(() => {
+      if (w.document.querySelector('#dl-popup-close')?.style.display === 'inline-block') {
+        observer.disconnect(); clearTimeout(timer); resolve();
+      }
+    });
+    observer.observe(w.document.body,{subtree:true,childList:true,attributes:true,characterData:true});
+  });
+  [...w.document.querySelectorAll('button')].find(el => el.innerText === 'Download H@H').click();
+  await finished;
+  const status = w.document.querySelector('#dl-popup-status').textContent;
+  assert(status.includes(test.expected), 'Unexpected UI: '+status);
+  assert(requests.length === test.replies.length, 'Unexpected request count');
+  assert(requests.every(r => r.timeout === 30000), 'Missing request timeout');
+  if (!test.success) {
+    assert(errors.length === 1 && errors[0][0].includes(test.expected), 'Console lacks server error');
+    assert(errors[0][1].gallery.includes('/g/123/test/'), 'Console lacks gallery context');
+    assert(w.document.querySelector('#error-log-text').value.includes(test.expected),'Error log missing detail');
+    assert(!status.includes('secret') && !status.includes('Gallery title'),'Unexpected HTML content');
+  } else {
+    assert(errors.length === 0, 'Success logged as error');
+    const post = requests[2];
+    assert(post.url === 'https://exhentai.org/archiver.php?gid=123&token=test','Relative form action incorrectly resolved');
+    assert(post.headers['Content-Type'] === 'application/x-www-form-urlencoded','Incorrect content type');
+    assert(new URLSearchParams(post.data).get('hathdl_xres') === 'org','Incorrect resolution');
+    assert(new URLSearchParams(post.data).get('client') === 'test-client','Lost hidden form field');
+  }
+  if (!keep) frame.remove();
+}
+(async () => {
+  let passed = 0;
+  for (const test of cases) {
+    const row = document.createElement('li');
+    try { await run(test, false); row.textContent='PASS: '+test.name; row.style.color='#8fda99'; passed++; }
+    catch (error) { row.textContent='FAIL: '+test.name+' — '+error.message; row.style.color='#ff9999'; }
+    document.querySelector('#results').append(row);
+  }
+  const summary = document.createElement('h2');
+  summary.id='summary'; summary.textContent=`${passed}/${cases.length} passed`;
+  document.querySelector('#results').after(summary);
+  await run(cases[0], true);
+})();
+</script>
